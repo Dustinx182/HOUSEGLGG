@@ -49,6 +49,15 @@
     --bg-translucent:rgba(255,255,255,0.92);
     --bg-translucent-2:rgba(255,255,255,0.96);
     --grid-line:rgba(0,0,0,0.07);
+    /* Fallback stack heights for the frozen header row (header, then the Player/Map +
+       Sub/Main toggle stack). JS measures the real rendered heights on load, resize, and
+       whenever the stack's own size changes (collapsed/expanded, map-view hiding the
+       battlefield toggle, etc.) and overwrites these -- the header wraps to a second row on
+       narrow phone widths, so a single hardcoded number here would leave the frozen bars
+       sticking a little too high and getting clipped behind the header on mobile. */
+    --header-h:59px;
+    --frozen-controls-h:101px;
+    --frozen-stack-h:170px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
   html{scroll-behavior:smooth;}
@@ -176,8 +185,22 @@
   /* ---------- floating side nav: icon bubbles that expand to show a label on hover ---------- */
   .side-nav{
     position:fixed; right:10px; top:50%; transform:translateY(-50%); z-index:300;
-    display:flex; flex-direction:column; gap:10px;
+    display:flex; align-items:center; gap:10px;
   }
+  .side-nav-items{display:flex; flex-direction:column; gap:10px;}
+  /* Collapse handle: hidden on desktop (plenty of room, hover already keeps bubbles out of the
+     way) and shown only on narrow/phone widths, where the stacked bubbles sit right on top of
+     right-aligned stats (leaderboard values, metric chips) and nothing is there to "hover off"
+     with a touch screen -- so phones need an explicit way to tuck the column away. */
+  .side-nav-toggle{
+    display:none; width:26px; height:44px; flex:0 0 26px; order:2;
+    background:var(--panel); border:1px solid var(--border); border-radius:8px;
+    color:var(--text-dim); cursor:pointer; align-items:center; justify-content:center;
+    box-shadow:0 2px 10px rgba(0,0,0,0.28); -webkit-appearance:none; appearance:none;
+  }
+  .side-nav-toggle:active{background:var(--panel-2);}
+  .side-nav-toggle-arrow{display:inline-block; font-size:14px; transition:transform 0.25s ease;}
+  .side-nav.collapsed .side-nav-toggle-arrow{transform:rotate(180deg);}
   .side-nav-item{
     display:flex; align-items:center; height:46px; max-width:46px; overflow:hidden;
     background:var(--panel); border:1px solid var(--border); border-radius:999px;
@@ -200,10 +223,19 @@
   }
   .side-nav-item:hover .side-nav-label, .side-nav-item:focus-visible .side-nav-label{opacity:1;}
   @media (max-width:640px){
-    .side-nav{right:6px; gap:8px;}
+    .side-nav{right:0; gap:0;}
+    .side-nav-items{gap:8px; transition:transform 0.25s ease, opacity 0.2s ease;}
     .side-nav-item, .side-nav-icon{height:40px; max-width:40px;}
     .side-nav-icon{width:40px; flex-basis:40px; font-size:17px;}
     .side-nav-item:hover, .side-nav-item:focus-visible{max-width:220px;}
+    .side-nav-toggle{display:flex; margin-right:6px;}
+    /* Collapsed: slide the bubble column out past the right edge and stop it from eating taps,
+       leaving just the handle (now flush against the edge) so stats underneath are reachable. */
+    .side-nav.collapsed .side-nav-items{
+      transform:translateX(calc(100% + 16px)); opacity:0; pointer-events:none;
+    }
+    .side-nav.collapsed{right:0;}
+    .side-nav.collapsed .side-nav-toggle{margin-right:2px;}
   }
 
   .no-data-card{
@@ -213,20 +245,56 @@
   .no-data-card .nd-icon{font-size:24px; margin-bottom:8px;}
 
   .sticky-filters{
-    position:sticky; top:112px; z-index:40;
+    position:sticky; top:calc(var(--header-h) + var(--frozen-controls-h)); z-index:40;
     background:var(--bg-translucent-2); backdrop-filter:blur(6px);
     padding:8px 2px 10px; margin:0 -2px 4px;
     border-bottom:1px solid var(--border);
   }
 
-  /* global battlefield toggle — sits between the header and <main>, so position:sticky pins it
-     for the ENTIRE page scroll (its containing block is unbounded), not just within one section.
-     top-offset value is measured against the real rendered header height, not guessed. */
-  .global-toggle-bar{
-    position:sticky; top:59px; z-index:45;
-    background:var(--bg-translucent-2); backdrop-filter:blur(6px);
-    padding:8px 12px; border-bottom:1px solid var(--border);
+  /* ---------- shared sticky + collapsible-handle behaviour ----------
+     Used by both .frozen-controls (Player/Map + Sub/Main toggle) and .sticky-filters (the KPI
+     section's match/job/sort filters + search + summary row) -- any position:sticky bar that can
+     eat a lot of phone screen once it's pinned. The handle only shows, and collapsing only hides
+     content, while JS has marked the bar `.is-stuck` -- i.e. while it has actually scrolled into
+     its pinned position and is sitting on top of other content. At the natural top of the page
+     (not yet stuck) the bar is just normal in-flow content, nothing is covering anything, so
+     there's nothing to hide and no handle appears -- scrolling back up always restores the full
+     bar regardless of a saved collapsed choice. */
+  .sticky-collapsible-inner{
+    overflow:hidden; max-height:400px;
+    transition:max-height 0.28s ease, opacity 0.2s ease;
   }
+  .sticky-collapsible.collapsed.is-stuck .sticky-collapsible-inner{
+    max-height:0; opacity:0; pointer-events:none;
+  }
+  .sticky-collapsible-handle{
+    display:none; align-items:center; justify-content:center; gap:5px; width:100%;
+    background:transparent; border:none; border-top:1px solid var(--border);
+    color:var(--text-dim); cursor:pointer; padding:3px 0 4px; font-size:9.5px; font-weight:800;
+    text-transform:uppercase; letter-spacing:0.05em; -webkit-appearance:none; appearance:none;
+  }
+  .sticky-collapsible.is-stuck .sticky-collapsible-handle{display:flex;}
+  .sticky-collapsible-handle:active{background:var(--panel-2);}
+  .sticky-collapsible.collapsed .sticky-collapsible-handle{border-top:none;}
+  .scz-arrow{font-size:9px; display:inline-block; transition:transform 0.28s ease;}
+  .sticky-collapsible.collapsed .scz-arrow{transform:rotate(180deg);}
+
+  /* Frozen control stack — Player/Map toggle + Sub/Main battlefield toggle, pinned together as
+     one unit right under the header for the entire page scroll (position:sticky's containing
+     block here is unbounded, so this isn't scoped to one section). top-offset uses --header-h
+     (set from JS against the real rendered header height, which differs between desktop and the
+     2-row mobile header) rather than a hardcoded px value, so it always sits flush under the
+     header instead of sticking too high and getting clipped behind it. */
+  .frozen-controls{
+    position:sticky; top:var(--header-h); z-index:46;
+    background:var(--bg-translucent-2); backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--border);
+  }
+
+  .view-tabs-bar{padding:8px 12px 0; display:flex; justify-content:center;}
+  .view-tabs-bar .toggle-group{max-width:300px; width:100%;}
+
+  .global-toggle-bar{padding:8px 12px 10px;}
   .global-toggle-bar .toggle-group{max-width:720px; margin:0 auto;}
   @media (min-width:860px){ .global-toggle-bar .toggle-group{max-width:1180px;} }
 
@@ -597,8 +665,9 @@
   }
 
 /* ================= INTERACTIVE MAP (Player / Map sub-tab) ================= */
-.view-tabs-bar{padding:8px 12px 0; display:flex; justify-content:center;}
-.view-tabs-bar .toggle-group{max-width:300px; width:100%;}
+/* .view-tabs-bar / .global-toggle-bar freeze-pane + collapse-handle styling lives up top in the
+   .frozen-controls block -- this class is also reused (non-sticky) for the battlefield sub-toggle
+   inside the map view itself, further down this file. */
 
 #mapSection{padding:14px 0 24px;}
 .map-placeholder-wrap{max-width:720px; margin:24px auto; padding:0 12px;}
@@ -893,66 +962,78 @@
   </div>
 </header>
 
-<div class="view-tabs-bar">
-  <div class="toggle-group view-toggle" id="viewToggle">
-    <button data-view="player" class="active">Player</button>
-    <button data-view="map">Map</button>
-  </div>
-</div>
+<div class="frozen-controls sticky-collapsible" id="frozenControls">
+  <div class="sticky-collapsible-inner" id="frozenControlsInner">
+    <div class="view-tabs-bar">
+      <div class="toggle-group view-toggle" id="viewToggle">
+        <button data-view="player" class="active">Player</button>
+        <button data-view="map">Map</button>
+      </div>
+    </div>
 
-<div class="global-toggle-bar">
-  <div class="toggle-group" id="trendBfToggle">
-    <button data-bf="Sub">Sub-Battlefield</button>
-    <button data-bf="Main" class="active">Main Battlefield</button>
+    <div class="global-toggle-bar">
+      <div class="toggle-group" id="trendBfToggle">
+        <button data-bf="Sub">Sub-Battlefield</button>
+        <button data-bf="Main" class="active">Main Battlefield</button>
+      </div>
+    </div>
   </div>
+  <button type="button" class="sticky-collapsible-handle" id="frozenControlsHandle" aria-controls="frozenControlsInner" aria-expanded="true" title="Hide toggles">
+    <span class="scz-arrow">▲</span> <span class="scz-label">Hide</span>
+  </button>
 </div>
 
 <nav class="side-nav" id="sideNav" aria-label="Jump to section">
-  <a href="#sec-record" class="side-nav-item">
-    <span class="side-nav-icon">🏆</span>
-    <span class="side-nav-label">Match Record</span>
-  </a>
-  <a href="#sec-comp" class="side-nav-item">
-    <span class="side-nav-icon">👥</span>
-    <span class="side-nav-label">Team Composition</span>
-  </a>
-  <a href="#sec-trends" class="side-nav-item">
-    <span class="side-nav-icon">📈</span>
-    <span class="side-nav-label">Team Trends</span>
-  </a>
-  <a href="#sec-top" class="side-nav-item">
-    <span class="side-nav-icon">🏅</span>
-    <span class="side-nav-label">Top Performers</span>
-  </a>
-  <a href="#sec-kpi" class="side-nav-item">
-    <span class="side-nav-icon">✅</span>
-    <span class="side-nav-label">Player Stats Check</span>
-  </a>
-  <a href="#sec-kpi" class="side-nav-item" id="navInfoBtn">
-    <span class="side-nav-icon">ℹ️</span>
-    <span class="side-nav-label">How is this calculated?</span>
-  </a>
-  <button type="button" class="side-nav-item" id="navMapBtn">
-    <span class="side-nav-icon">🗺️</span>
-    <span class="side-nav-label">Open Map</span>
+  <button type="button" class="side-nav-toggle" id="sideNavToggle" aria-controls="sideNavItems" aria-expanded="true" aria-label="Hide quick links">
+    <span class="side-nav-toggle-arrow">›</span>
   </button>
+  <div class="side-nav-items" id="sideNavItems">
+    <a href="#sec-record" class="side-nav-item">
+      <span class="side-nav-icon">🏆</span>
+      <span class="side-nav-label">Match Record</span>
+    </a>
+    <a href="#sec-comp" class="side-nav-item">
+      <span class="side-nav-icon">👥</span>
+      <span class="side-nav-label">Team Composition</span>
+    </a>
+    <a href="#sec-trends" class="side-nav-item">
+      <span class="side-nav-icon">📈</span>
+      <span class="side-nav-label">Team Trends</span>
+    </a>
+    <a href="#sec-top" class="side-nav-item">
+      <span class="side-nav-icon">🏅</span>
+      <span class="side-nav-label">Top Performers</span>
+    </a>
+    <a href="#sec-kpi" class="side-nav-item">
+      <span class="side-nav-icon">✅</span>
+      <span class="side-nav-label">Player Stats Check</span>
+    </a>
+    <a href="#sec-kpi" class="side-nav-item" id="navInfoBtn">
+      <span class="side-nav-icon">ℹ️</span>
+      <span class="side-nav-label">How is this calculated?</span>
+    </a>
+    <button type="button" class="side-nav-item" id="navMapBtn">
+      <span class="side-nav-icon">🗺️</span>
+      <span class="side-nav-label">Open Map</span>
+    </button>
+  </div>
 </nav>
 
 <main id="appBody">
 <div id="dataSections">
-  <section id="sec-record" style="scroll-margin-top:130px;">
+  <section id="sec-record" style="scroll-margin-top:var(--frozen-stack-h);">
     <div class="section-head sh-record"><h2>Match Record</h2></div>
     <div class="match-strip" id="matchStrip"></div>
   </section>
 
-  <section id="sec-comp" style="scroll-margin-top:130px;">
+  <section id="sec-comp" style="scroll-margin-top:var(--frozen-stack-h);">
     <div class="section-head sh-comp"><h2>Team Composition<span class="section-hint">(click a job or bar for details)</span></h2></div>
     <div style="height:10px;"></div>
     <select id="compMatchFilter" style="width:100%; margin-bottom:12px;"></select>
     <div id="compGrid"></div>
   </section>
 
-  <section id="sec-trends" style="scroll-margin-top:130px;">
+  <section id="sec-trends" style="scroll-margin-top:var(--frozen-stack-h);">
     <div class="section-head sh-trends"><h2>Team Trends</h2></div>
     <div style="height:12px;"></div>
     <div class="chart-grid">
@@ -973,7 +1054,7 @@
     </div>
   </section>
 
-  <section id="sec-top" style="scroll-margin-top:130px;">
+  <section id="sec-top" style="scroll-margin-top:var(--frozen-stack-h);">
     <div class="section-head sh-top"><h2>Top Performers</h2></div>
     <div class="toggle-group" id="lbViewToggle">
       <button data-view="overall" class="active">Overall</button>
@@ -1006,24 +1087,29 @@
     </div>
   </section>
 
-  <section id="sec-kpi" style="scroll-margin-top:130px;">
+  <section id="sec-kpi" style="scroll-margin-top:var(--frozen-stack-h);">
     <div class="section-head sh-kpi">
       <h2>Player Stats Check</h2>
       <button id="kpiInfoToggle" class="info-link">ℹ️ How is this calculated?</button>
     </div>
     <div id="kpiInfoPanel" class="kpi-info-panel" style="display:none;"></div>
-    <div class="sticky-filters">
-      <div class="filter-bar">
-        <select id="matchFilter"></select>
-        <select id="jobFilter"></select>
-        <select id="sortByFilter"></select>
-        <select id="sortOrderFilter"></select>
+    <div class="sticky-filters sticky-collapsible" id="kpiFilters">
+      <div class="sticky-collapsible-inner" id="kpiFiltersInner">
+        <div class="filter-bar">
+          <select id="matchFilter"></select>
+          <select id="jobFilter"></select>
+          <select id="sortByFilter"></select>
+          <select id="sortOrderFilter"></select>
+        </div>
+        <input type="search" id="searchBox" placeholder="Search player name…" style="width:100%; margin-bottom:10px;">
+        <div class="kpi-summary">
+          <span>Players shown: <b id="shownCount">0</b></span>
+          <span>Passed all Stats: <b id="passAllCount">0</b></span>
+        </div>
       </div>
-      <input type="search" id="searchBox" placeholder="Search player name…" style="width:100%; margin-bottom:10px;">
-      <div class="kpi-summary">
-        <span>Players shown: <b id="shownCount">0</b></span>
-        <span>Passed all Stats: <b id="passAllCount">0</b></span>
-      </div>
+      <button type="button" class="sticky-collapsible-handle" aria-controls="kpiFiltersInner" aria-expanded="true" title="Hide filters">
+        <span class="scz-arrow">▲</span> <span class="scz-label">Hide</span>
+      </button>
     </div>
     <div id="playerList"></div>
   </section>
@@ -1031,12 +1117,12 @@
 </div>
 
 <div id="valeSections" style="display:none;">
-  <section id="vale-sec-record" style="scroll-margin-top:130px;">
+  <section id="vale-sec-record" style="scroll-margin-top:var(--frozen-stack-h);">
     <div class="section-head sh-record"><h2>Match Record</h2></div>
     <div class="match-strip" id="valeMatchStrip"></div>
   </section>
 
-  <section id="vale-sec-teamstats" style="scroll-margin-top:130px;">
+  <section id="vale-sec-teamstats" style="scroll-margin-top:var(--frozen-stack-h);">
     <div class="section-head sh-record"><h2>Team Stats</h2></div>
     <div style="height:10px;"></div>
     <select id="valeStatsMatchFilter" style="width:100%; margin-bottom:12px;"></select>
@@ -1045,14 +1131,14 @@
     </div>
   </section>
 
-  <section id="vale-sec-comp" style="scroll-margin-top:130px;">
+  <section id="vale-sec-comp" style="scroll-margin-top:var(--frozen-stack-h);">
     <div class="section-head sh-comp"><h2>Team Composition<span class="section-hint">(click a job or bar for details)</span></h2></div>
     <div style="height:10px;"></div>
     <select id="valeCompMatchFilter" style="width:100%; margin-bottom:12px;"></select>
     <div id="valeCompGrid"></div>
   </section>
 
-  <section id="vale-sec-trends" style="scroll-margin-top:130px;">
+  <section id="vale-sec-trends" style="scroll-margin-top:var(--frozen-stack-h);">
     <div class="section-head sh-trends"><h2>Team Trends</h2></div>
     <div style="height:12px;"></div>
     <div class="chart-grid">
@@ -1067,7 +1153,7 @@
     </div>
   </section>
 
-  <section id="vale-sec-top" style="scroll-margin-top:130px;">
+  <section id="vale-sec-top" style="scroll-margin-top:var(--frozen-stack-h);">
     <div class="section-head sh-top"><h2>Top Performers</h2></div>
     <div class="toggle-group" id="valeLbViewToggle">
       <button data-view="overall" class="active">Overall</button>
@@ -1100,34 +1186,39 @@
     </div>
   </section>
 
-  <section id="vale-sec-kpi" style="scroll-margin-top:130px;">
+  <section id="vale-sec-kpi" style="scroll-margin-top:var(--frozen-stack-h);">
     <div class="section-head sh-kpi">
       <h2>Player Stats Check</h2>
       <button id="valeKpiInfoToggle" class="info-link">ℹ️ How is this calculated?</button>
     </div>
     <div id="valeKpiInfoPanel" class="kpi-info-panel" style="display:none;"></div>
-    <div class="sticky-filters">
-      <div class="filter-bar">
-        <select id="valeMatchFilter"></select>
-        <select id="valeJobFilter"></select>
-        <select id="valeSortByFilter">
-          <option value="reds">By Reds</option>
-          <option value="greens">By Green</option>
-          <option value="name">By Name</option>
-          <option value="kills">By Kills</option>
-          <option value="assists">By Assists</option>
-          <option value="flags">By Flags</option>
-        </select>
-        <select id="valeSortOrderFilter">
-          <option value="desc">Descending</option>
-          <option value="asc">Ascending</option>
-        </select>
+    <div class="sticky-filters sticky-collapsible" id="valeKpiFilters">
+      <div class="sticky-collapsible-inner" id="valeKpiFiltersInner">
+        <div class="filter-bar">
+          <select id="valeMatchFilter"></select>
+          <select id="valeJobFilter"></select>
+          <select id="valeSortByFilter">
+            <option value="reds">By Reds</option>
+            <option value="greens">By Green</option>
+            <option value="name">By Name</option>
+            <option value="kills">By Kills</option>
+            <option value="assists">By Assists</option>
+            <option value="flags">By Flags</option>
+          </select>
+          <select id="valeSortOrderFilter">
+            <option value="desc">Descending</option>
+            <option value="asc">Ascending</option>
+          </select>
+        </div>
+        <input type="search" id="valeSearchBox" placeholder="Search player name…" style="width:100%; margin-bottom:10px;">
+        <div class="kpi-summary">
+          <span>Players shown: <b id="valeShownCount">0</b></span>
+          <span>Passed all Stats: <b id="valePassAllCount">0</b></span>
+        </div>
       </div>
-      <input type="search" id="valeSearchBox" placeholder="Search player name…" style="width:100%; margin-bottom:10px;">
-      <div class="kpi-summary">
-        <span>Players shown: <b id="valeShownCount">0</b></span>
-        <span>Passed all Stats: <b id="valePassAllCount">0</b></span>
-      </div>
+      <button type="button" class="sticky-collapsible-handle" aria-controls="valeKpiFiltersInner" aria-expanded="true" title="Hide filters">
+        <span class="scz-arrow">▲</span> <span class="scz-label">Hide</span>
+      </button>
     </div>
     <div id="valePlayerList"></div>
   </section>
@@ -1460,7 +1551,7 @@ function hasEventData(){ return DASH && DASH.matches && DASH.matches.length > 0;
 // property forces a real repaint without changing anything visually. Runs once after the
 // elements exist (covers the initial-load case) and again on every manual toggle.
 function forceThemeRepaint(){
-  [document.body, document.querySelector('.global-toggle-bar')].filter(Boolean).forEach(el=>{
+  [document.body, document.querySelector('.frozen-controls')].filter(Boolean).forEach(el=>{
     el.style.transform = 'translateZ(0)';
     void el.offsetHeight; // forces synchronous layout, flushing the pending style
     el.style.transform = '';
@@ -2702,6 +2793,149 @@ document.getElementById('navMapBtn').addEventListener('click', ()=>{
   const mapBtn = document.querySelector('#viewToggle button[data-view="map"]');
   if(mapBtn) mapBtn.click();
 });
+
+// Side-nav collapse handle (phones only -- see .side-nav-toggle's CSS comment). The bubble
+// column defaults to collapsed on a narrow screen since that's precisely the width where it
+// sits on top of right-aligned stats; desktop never shows the handle at all (CSS keeps it
+// display:none there) so this only ever matters below the 640px breakpoint. The choice persists
+// per-browser so it doesn't reset itself shut (or open) on every visit.
+(function(){
+  const nav = document.getElementById('sideNav');
+  const toggle = document.getElementById('sideNavToggle');
+  const isMobile = () => window.matchMedia('(max-width:640px)').matches;
+  let collapsed = true;
+  try{
+    const saved = localStorage.getItem('valeSideNavCollapsed');
+    if(saved !== null) collapsed = saved === '1';
+  }catch(e){}
+  function apply(){
+    const c = isMobile() ? collapsed : false;
+    nav.classList.toggle('collapsed', c);
+    toggle.setAttribute('aria-expanded', String(!c));
+    toggle.setAttribute('aria-label', c ? 'Show quick links' : 'Hide quick links');
+  }
+  apply();
+  window.addEventListener('resize', apply);
+  toggle.addEventListener('click', ()=>{
+    collapsed = !collapsed;
+    apply();
+    try{ localStorage.setItem('valeSideNavCollapsed', collapsed ? '1' : '0'); }catch(e){}
+  });
+  // Tapping an actual link/button inside the column tucks it back away afterward, so it
+  // doesn't linger open and block the section the person just jumped to.
+  document.getElementById('sideNavItems').querySelectorAll('.side-nav-item').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      if(!isMobile()) return;
+      collapsed = true;
+      apply();
+      try{ localStorage.setItem('valeSideNavCollapsed', '1'); }catch(e){}
+    });
+  });
+})();
+
+// Keep the frozen header stack (site header + the Player/Map + Sub/Main toggle group) sized
+// correctly via --header-h/--frozen-controls-h custom properties, which the sticky CSS above
+// reads for each bar's `top` offset. These can't be hardcoded: the site header wraps onto a
+// second row on narrow phone widths (title+controls, then the Stellar/Vale tabs underneath), so
+// its real height differs a lot between desktop and mobile. The frozen-controls height also
+// changes whenever it's collapsed/expanded (see the handle toggle below) or when map view hides
+// the battlefield toggle inside it -- ResizeObserver on the container itself catches all of
+// that automatically, including mid-transition while the collapse animation is running, so the
+// KPI filter bar and every section's scroll-margin-top stay in sync without a visible jump.
+// Registry of is-stuck re-check functions, one per .sticky-collapsible bar (populated by
+// initStickyCollapsible below). Called here too: when the frozen toggle stack's own height
+// changes (collapsed/expanded, or map view hiding the battlefield toggle inside it), every bar
+// stacked below it gets a new resolved `top` offset, so its stuck/not-stuck state can flip at
+// that instant even without a scroll or viewport-resize event of its own.
+window.__stickyCollapsibles = window.__stickyCollapsibles || [];
+(function(){
+  const header = document.querySelector('header.top');
+  const frozenControls = document.getElementById('frozenControls');
+  function update(){
+    const root = document.documentElement.style;
+    const hH = header ? header.getBoundingClientRect().height : 0;
+    const fH = frozenControls ? frozenControls.getBoundingClientRect().height : 0;
+    if(header) root.setProperty('--header-h', hH + 'px');
+    if(frozenControls) root.setProperty('--frozen-controls-h', fH + 'px');
+    // Used for each section's scroll-margin-top, so jumping via the side-nav (or any
+    // #sec-... link) stops with the section heading just below the frozen bars instead of
+    // hidden behind them -- +16px of breathing room so the heading isn't flush against them.
+    root.setProperty('--frozen-stack-h', (hH + fH + 16) + 'px');
+    window.__stickyCollapsibles.forEach(fn=>fn());
+  }
+  update();
+  window.addEventListener('resize', update);
+  window.addEventListener('load', update);
+  setTimeout(update, 300); // catch late font/content reflow
+  if(window.ResizeObserver){
+    const ro = new ResizeObserver(update);
+    [header, frozenControls].forEach(el=>{ if(el) ro.observe(el); });
+  }
+})();
+
+// Sticky + collapsible handle wiring, shared by every bar that uses the .sticky-collapsible
+// classes (the frozen Player/Map + Sub/Main toggle stack, and each KPI section's match/job/sort
+// filter row). The handle is only ever shown -- and collapsing only ever hides content -- while
+// JS has marked the bar `.is-stuck`, i.e. while the person has actually scrolled it into its
+// pinned position and it's sitting on top of other content. At the natural top of the page it's
+// just normal in-flow content with nothing to hide, so no handle appears there and scrolling back
+// up always restores the full bar regardless of a saved collapsed choice.
+// "Stuck" detection compares the bar's live on-screen position against its own resolved sticky
+// `top` offset (read via getComputedStyle, which resolves the calc()/var() in the CSS to a plain
+// px number) rather than hardcoding a breakpoint -- that offset moves around a lot here (desktop
+// vs the 2-row mobile header, and the KPI filter row's offset changes again if the frozen toggle
+// stack above it is itself collapsed), so comparing against the live resolved value is what keeps
+// this correct in every combination instead of just some of them.
+function initStickyCollapsible(el, storageKey){
+  if(!el) return;
+  const handle = el.querySelector('.sticky-collapsible-handle');
+  if(!handle) return;
+  let collapsed = false;
+  try{
+    const saved = localStorage.getItem(storageKey);
+    if(saved !== null) collapsed = saved === '1';
+  }catch(e){}
+  function applyCollapsed(){
+    el.classList.toggle('collapsed', collapsed);
+    handle.setAttribute('aria-expanded', String(!collapsed));
+    handle.title = collapsed ? 'Show' : 'Hide';
+    const label = handle.querySelector('.scz-label');
+    if(label) label.textContent = collapsed ? 'Show' : 'Hide';
+  }
+  applyCollapsed();
+  handle.addEventListener('click', ()=>{
+    collapsed = !collapsed;
+    applyCollapsed();
+    try{ localStorage.setItem(storageKey, collapsed ? '1' : '0'); }catch(e){}
+  });
+
+  let ticking = false;
+  function checkStuck(){
+    ticking = false;
+    if(el.offsetParent === null) return; // hidden (other event tab / map view) -- nothing to do
+    const rect = el.getBoundingClientRect();
+    const cssTop = parseFloat(getComputedStyle(el).top) || 0;
+    el.classList.toggle('is-stuck', rect.top <= cssTop + 1); // +1px for subpixel rounding
+  }
+  function onScrollOrResize(){
+    if(!ticking){ ticking = true; requestAnimationFrame(checkStuck); }
+  }
+  window.addEventListener('scroll', onScrollOrResize, {passive:true});
+  window.addEventListener('resize', onScrollOrResize);
+  checkStuck();
+  setTimeout(checkStuck, 300); // catch late font/content reflow
+  if(window.ResizeObserver){
+    const ro = new ResizeObserver(onScrollOrResize);
+    ro.observe(el);
+  }
+  // Also re-check whenever the frozen toggle stack above this bar changes height (collapsed,
+  // expanded, or shrunk by map view) -- see the registry note above initStickyCollapsible's caller.
+  window.__stickyCollapsibles = window.__stickyCollapsibles || [];
+  window.__stickyCollapsibles.push(checkStuck);
+}
+initStickyCollapsible(document.getElementById('frozenControls'), 'houseFrozenControlsCollapsed');
+initStickyCollapsible(document.getElementById('kpiFilters'), 'houseKpiFiltersCollapsed');
+initStickyCollapsible(document.getElementById('valeKpiFilters'), 'houseValeKpiFiltersCollapsed');
 
 // ---------- wiring ----------
 function setupToggle(id, onChange){
