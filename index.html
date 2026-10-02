@@ -798,13 +798,22 @@
 .map-side-btn-danger:hover{border-color:var(--loss); color:var(--loss);}
 .map-sidebar-note{font-size:10px; color:var(--text-dim); line-height:1.5; opacity:0.8;}
 
-.map-canvas-wrap{flex:1 1 auto; min-width:1040px; position:relative;}
+/* overflow:hidden makes this the fixed-size "viewport" onto the map: .map-canvas inside it
+   gets panned/zoomed via a CSS transform (see initMapViewport), and since a transform never
+   changes an element's own LAYOUT size (only its painted position/scale), this wrap's own
+   height -- which comes purely from .map-canvas's untransformed aspect-ratio box -- never
+   moves around as the person zooms in and out. That's what keeps this a stable "window" rather
+   than a box that grows/shrinks with the zoom level. */
+.map-canvas-wrap{flex:1 1 auto; position:relative; overflow:hidden;}
 /* aspect-ratio is set inline from the actual image's own dimensions (see build script), so the
    canvas box always matches the source image exactly — nothing gets cropped top/bottom, and
-   object-fit:contain below is just a safety net for any sub-pixel rounding, never a real crop. */
+   object-fit:contain below is just a safety net for any sub-pixel rounding, never a real crop.
+   transform-origin:0 0 matches the translate/scale math in initMapViewport, which treats
+   (0,0) -- the canvas's own top-left corner -- as the zoom/pan anchor. */
 .map-canvas{
   position:relative; width:100%; background:#0a0c10; overflow:hidden;
   touch-action:none; -webkit-touch-callout:none;
+  transform-origin:0 0; will-change:transform;
 }
 .map-canvas img{
   position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:center;
@@ -926,7 +935,52 @@
   .map-sidebar{flex-basis:190px; width:190px; padding:10px 8px 12px;}
   .map-sidebar-head h3{font-size:12.5px;}
   .map-party-list-item, .map-party-list-item-sm, .map-party-list-item-sub{font-size:10.5px; padding:5px 6px;}
-  .map-canvas-wrap{min-width:900px;}
+}
+
+/* ---------- map sidebar collapse handle ----------
+   .map-sidebar itself keeps its fixed flex-basis/width most of the time; collapsing animates
+   that down to 0 (plus its padding, so no stray gap remains) rather than just hiding it, so the
+   canvas viewport smoothly reclaims the freed width. The handle is a separate element (not a
+   child of the sidebar) so it stays visible and clickable in both states. */
+.map-sidebar{
+  transition:flex-basis 0.25s ease, width 0.25s ease, padding 0.25s ease, opacity 0.2s ease;
+  overflow-x:hidden;
+}
+.map-sidebar.collapsed{
+  flex-basis:0; width:0; padding-left:0; padding-right:0; opacity:0; pointer-events:none;
+}
+.map-sidebar-collapse-handle{
+  flex:0 0 16px; width:16px; align-self:stretch; position:sticky; top:0; z-index:7;
+  background:var(--panel-2); border-right:1px solid var(--border);
+  color:var(--text-dim); cursor:pointer; display:flex; align-items:center; justify-content:center;
+  padding:0; -webkit-appearance:none; appearance:none;
+}
+.map-sidebar-collapse-handle:active{background:var(--panel);}
+.map-sidebar-collapse-handle .mscz-arrow{font-size:11px; transition:transform 0.25s ease; display:inline-block;}
+.map-shell.sidebar-collapsed .map-sidebar-collapse-handle .mscz-arrow{transform:rotate(180deg);}
+
+/* ---------- map zoom controls ---------- */
+.map-zoom-controls{
+  position:absolute; right:10px; bottom:10px; z-index:20;
+  display:flex; flex-direction:column; gap:6px;
+}
+.map-zoom-btn{
+  width:32px; height:32px; border-radius:8px; border:1px solid var(--border);
+  background:rgba(10,12,16,0.85); color:var(--text); font-size:15px; font-weight:700; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; padding:0;
+  box-shadow:0 2px 10px rgba(0,0,0,0.35);
+}
+[data-theme="light"] .map-zoom-btn{background:rgba(255,255,255,0.9);}
+.map-zoom-btn:active{background:var(--panel-2);}
+.map-zoom-btn-fit{font-size:11px; font-weight:800;}
+.map-zoom-hint{
+  position:absolute; left:10px; bottom:10px; z-index:20; max-width:220px;
+  font-size:9.5px; line-height:1.4; color:var(--text-dim); background:rgba(10,12,16,0.75);
+  border:1px solid var(--border); border-radius:8px; padding:5px 8px; pointer-events:none;
+}
+[data-theme="light"] .map-zoom-hint{background:rgba(255,255,255,0.82);}
+@media (max-width:640px){
+  .map-zoom-hint{display:none;} /* the gesture it describes (middle-click drag) is desktop-only */
 }
 
 </style>
@@ -1298,6 +1352,8 @@
         <div class="map-sidebar-note">Saved to this browser only — pin positions and member names aren't shared across devices.</div>
       </aside>
 
+      <button type="button" class="map-sidebar-collapse-handle" data-suffix="Sm" title="Hide sidebar"><span class="mscz-arrow">◂</span></button>
+
       <div class="map-canvas-wrap" id="mapCanvasWrapSm">
         <div class="map-draw-toolbar" id="mapDrawToolbarSm">
           <div class="map-draw-group">
@@ -1326,6 +1382,12 @@
           <canvas class="map-draw-canvas" id="mapDrawCanvasSm"></canvas>
           <div class="map-pins-layer" id="mapPinsLayerSm"></div>
           <div class="map-flags-layer" id="mapFlagsLayerSm"></div>
+        </div>
+        <div class="map-zoom-hint">Scroll to zoom · middle-click drag to pan · pinch/2-finger drag on phone</div>
+        <div class="map-zoom-controls" data-suffix="Sm">
+          <button type="button" class="map-zoom-btn" data-zoom="in" title="Zoom in">+</button>
+          <button type="button" class="map-zoom-btn" data-zoom="out" title="Zoom out">−</button>
+          <button type="button" class="map-zoom-btn map-zoom-btn-fit" data-zoom="fit" title="Reset zoom">FIT</button>
         </div>
       </div>
     </div>
@@ -1391,6 +1453,8 @@
         <div class="map-sidebar-note">Saved to this browser only — pin positions and member names aren't shared across devices.</div>
       </aside>
 
+      <button type="button" class="map-sidebar-collapse-handle" data-suffix="Sub" title="Hide sidebar"><span class="mscz-arrow">◂</span></button>
+
       <div class="map-canvas-wrap" id="mapCanvasWrapSub">
         <div class="map-draw-toolbar" id="mapDrawToolbarSub">
           <div class="map-draw-group">
@@ -1419,6 +1483,12 @@
           <canvas class="map-draw-canvas" id="mapDrawCanvasSub"></canvas>
           <div class="map-pins-layer" id="mapPinsLayerSub"></div>
           <div class="map-flags-layer" id="mapFlagsLayerSub"></div>
+        </div>
+        <div class="map-zoom-hint">Scroll to zoom · middle-click drag to pan · pinch/2-finger drag on phone</div>
+        <div class="map-zoom-controls" data-suffix="Sub">
+          <button type="button" class="map-zoom-btn" data-zoom="in" title="Zoom in">+</button>
+          <button type="button" class="map-zoom-btn" data-zoom="out" title="Zoom out">−</button>
+          <button type="button" class="map-zoom-btn map-zoom-btn-fit" data-zoom="fit" title="Reset zoom">FIT</button>
         </div>
       </div>
     </div>
@@ -1483,6 +1553,8 @@
         <div class="map-sidebar-note">Saved to this browser only — pin positions and member names aren't shared across devices.</div>
       </aside>
 
+      <button type="button" class="map-sidebar-collapse-handle" data-suffix="" title="Hide sidebar"><span class="mscz-arrow">◂</span></button>
+
       <div class="map-canvas-wrap" id="mapCanvasWrap">
         <div class="map-draw-toolbar" id="mapDrawToolbar">
           <div class="map-draw-group">
@@ -1511,6 +1583,12 @@
           <canvas class="map-draw-canvas" id="mapDrawCanvas"></canvas>
           <div class="map-pins-layer" id="mapPinsLayer"></div>
           <div class="map-flags-layer" id="mapFlagsLayer"></div>
+        </div>
+        <div class="map-zoom-hint">Scroll to zoom · middle-click drag to pan · pinch/2-finger drag on phone</div>
+        <div class="map-zoom-controls" data-suffix="">
+          <button type="button" class="map-zoom-btn" data-zoom="in" title="Zoom in">+</button>
+          <button type="button" class="map-zoom-btn" data-zoom="out" title="Zoom out">−</button>
+          <button type="button" class="map-zoom-btn map-zoom-btn-fit" data-zoom="fit" title="Reset zoom">FIT</button>
         </div>
       </div>
     </div>
@@ -5007,11 +5085,243 @@ function mapSetupFlagPalette(){
 // comment on .map-sidebar for why this can't be done in pure CSS). Re-run on resize
 // since the canvas's height changes with viewport width (it's aspect-ratio driven).
 function mapSyncSidebarHeight(){
-  const canvas = document.getElementById('mapCanvas');
+  // Reads the WRAP's height, not the canvas's: the canvas can be scaled up by the zoom
+  // feature (initMapViewport), and getBoundingClientRect() always reports that scaled-up
+  // render size, which would otherwise make the sidebar balloon to match a zoomed-in map.
+  // The wrap's own height stays fixed at the un-zoomed size regardless of zoom level (a
+  // CSS transform never changes an element's layout size, only how it paints, so a parent
+  // that auto-sizes to the child's layout box is unaffected by the child's zoom transform).
+  const canvas = document.getElementById('mapCanvasWrap');
   const sidebar = document.getElementById('mapSidebar');
   if(!canvas || !sidebar) return;
   const h = canvas.getBoundingClientRect().height;
   if(h > 0) sidebar.style.maxHeight = h + 'px';
+}
+
+// ---------- map viewport: pan, zoom, and sidebar collapse ----------
+// Shared by all three map instances (Stellar Main = suffix '', wait -- Vale = '', Stellar
+// Main = 'Sm', Stellar Sub = 'Sub'; ids below all follow that existing <base><suffix> pattern).
+// Called once per instance from inside its own initMapBoardOnce*(), right alongside its other
+// one-time setup.
+//
+// Zoom/pan works by applying `transform: translate(panX,panY) scale(zoom)` directly to the
+// .map-canvas element (transform-origin:0 0, set in CSS), with .map-canvas-wrap as the fixed,
+// overflow:hidden "viewport" clipping it. This needs no changes anywhere else: every existing
+// pin/flag/marquee/draw-tool handler already converts pointer coordinates via
+// canvasEl.getBoundingClientRect(), and a CSS transform is reflected in that rect automatically
+// (it's the real painted box, scale and all) -- so placing, dragging, and selecting pins all
+// keep working, zoomed in or not, with zero changes to that code.
+//
+// The one gesture that genuinely conflicts with existing canvas interaction is a second touch
+// finger: both the marquee-select and the pin/flag drag handlers are single-pointer and don't
+// know about multi-touch, so without help a 2-finger touch would also start (or continue) one of
+// those as well as our own pinch/pan. We avoid touching that code at all: a pointerdown listener
+// registered on the WRAP in the CAPTURE phase sees every touch before it ever reaches the canvas's
+// own bubble-phase listeners, and once a second finger lands we stopPropagation() that pointerdown
+// (so it never starts a second marquee) and dispatch a synthetic pointercancel for the FIRST
+// finger's pointerId (so its already-listening window pointercancel handler cleans itself up the
+// same way it would for a real cancel). One finger alone is left completely untouched and still
+// drives marquee-select / pin-drag exactly as before.
+function initMapViewport(suffix){
+  const shellEl = document.getElementById('mapShell' + suffix);
+  const sidebarEl = document.getElementById('mapSidebar' + suffix);
+  const wrapEl = document.getElementById('mapCanvasWrap' + suffix);
+  const canvasEl = document.getElementById('mapCanvas' + suffix);
+  const handleEl = shellEl ? shellEl.querySelector('.map-sidebar-collapse-handle[data-suffix="' + suffix + '"]') : null;
+  const zoomControlsEl = wrapEl ? wrapEl.querySelector('.map-zoom-controls[data-suffix="' + suffix + '"]') : null;
+  if(!shellEl || !sidebarEl || !wrapEl || !canvasEl) return;
+
+  // ---- pan/zoom state ----
+  const MIN_ZOOM = 1, MAX_ZOOM = 4;
+  let zoom = 1, panX = 0, panY = 0;
+
+  function clamp(){
+    const cw = wrapEl.clientWidth, ch = wrapEl.clientHeight;
+    const natW = canvasEl.offsetWidth, natH = canvasEl.offsetHeight; // layout size -- transform-stable
+    const sw = natW * zoom, sh = natH * zoom;
+    const minX = Math.min(0, cw - sw), minY = Math.min(0, ch - sh);
+    panX = Math.max(minX, Math.min(0, panX));
+    panY = Math.max(minY, Math.min(0, panY));
+  }
+  function apply(){
+    canvasEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+  }
+  function zoomAt(px, py, newZoomRaw){
+    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoomRaw));
+    if(newZoom === zoom){ return; }
+    const contentX = (px - panX) / zoom, contentY = (py - panY) / zoom;
+    zoom = newZoom;
+    panX = px - contentX * zoom;
+    panY = py - contentY * zoom;
+    clamp();
+    apply();
+  }
+  function panBy(dx, dy){
+    panX += dx; panY += dy;
+    clamp();
+    apply();
+  }
+  function resetView(){
+    zoom = 1; panX = 0; panY = 0;
+    apply();
+  }
+
+  // ---- wheel = zoom, centered on the cursor ----
+  wrapEl.addEventListener('wheel', (e)=>{
+    e.preventDefault();
+    const rect = wrapEl.getBoundingClientRect();
+    const px = e.clientX - rect.left, py = e.clientY - rect.top;
+    const factor = Math.exp(-e.deltaY * 0.0015);
+    zoomAt(px, py, zoom * factor);
+  }, {passive:false});
+
+  // ---- zoom buttons ----
+  if(zoomControlsEl){
+    zoomControlsEl.addEventListener('click', (e)=>{
+      const btn = e.target.closest('.map-zoom-btn');
+      if(!btn) return;
+      const cx = wrapEl.clientWidth / 2, cy = wrapEl.clientHeight / 2;
+      if(btn.dataset.zoom === 'in') zoomAt(cx, cy, zoom * 1.4);
+      else if(btn.dataset.zoom === 'out') zoomAt(cx, cy, zoom / 1.4);
+      else resetView();
+    });
+  }
+
+  // ---- middle-mouse-button drag = pan ----
+  wrapEl.addEventListener('pointerdown', (e)=>{
+    if(e.pointerType !== 'touch' && e.button === 1){
+      e.preventDefault();
+      e.stopPropagation();
+      const startX = e.clientX, startY = e.clientY;
+      const pointerId = e.pointerId;
+      let lastX = startX, lastY = startY;
+      const onMoveDelta = (ev)=>{
+        if(ev.pointerId !== pointerId) return;
+        panBy(ev.clientX - lastX, ev.clientY - lastY);
+        lastX = ev.clientX; lastY = ev.clientY;
+      };
+      const onUp = (ev)=>{
+        if(ev.pointerId !== pointerId) return;
+        window.removeEventListener('pointermove', onMoveDelta);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
+      };
+      window.addEventListener('pointermove', onMoveDelta);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
+    }
+  }, {capture:true});
+
+  // ---- touch: 2-finger pinch-zoom + pan, without disturbing 1-finger marquee/pin-drag ----
+  const activeTouches = new Map(); // pointerId -> {x,y}
+  let pinchStartDist = 0, pinchStartZoom = 1, pinchStartMid = {x:0,y:0}, pinchStartPan = {x:0,y:0};
+
+  function touchDist(){
+    const pts = [...activeTouches.values()];
+    return Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+  }
+  function touchMid(){
+    const pts = [...activeTouches.values()];
+    return {x:(pts[0].x + pts[1].x)/2, y:(pts[0].y + pts[1].y)/2};
+  }
+
+  wrapEl.addEventListener('pointerdown', (e)=>{
+    if(e.pointerType !== 'touch') return;
+    const wasSize = activeTouches.size;
+    activeTouches.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(activeTouches.size === 2){
+      // A 2nd finger just landed -- take over from here, and cancel whatever the 1st
+      // finger's pointerdown may have already started (marquee-select) by sending it a
+      // real pointercancel, which that code already listens for.
+      e.stopPropagation();
+      e.preventDefault();
+      const ids = [...activeTouches.keys()];
+      const firstId = ids.find(id=>id !== e.pointerId);
+      if(firstId !== undefined){
+        const cancelEv = new PointerEvent('pointercancel', {pointerId: firstId, bubbles:true, cancelable:true});
+        window.dispatchEvent(cancelEv);
+        canvasEl.dispatchEvent(cancelEv);
+      }
+      const rect = wrapEl.getBoundingClientRect();
+      pinchStartDist = touchDist();
+      pinchStartZoom = zoom;
+      const mid = touchMid();
+      pinchStartMid = {x: mid.x - rect.left, y: mid.y - rect.top};
+      pinchStartPan = {x: panX, y: panY};
+    } else if(activeTouches.size > 2){
+      // 3rd+ finger: ignore it for gesture purposes, but swallow it so it can't start a
+      // stray marquee either.
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    // size === 1: let it fall through untouched -- existing single-finger behavior (marquee
+    // select / pin drag / flag drag / draw tool) handles it exactly as before.
+  }, {capture:true});
+
+  function onTouchMove(e){
+    if(e.pointerType !== 'touch' || !activeTouches.has(e.pointerId)) return;
+    activeTouches.set(e.pointerId, {x:e.clientX, y:e.clientY});
+    if(activeTouches.size === 2){
+      e.preventDefault();
+      const rect = wrapEl.getBoundingClientRect();
+      const dist = touchDist();
+      const mid = touchMid();
+      const midInWrap = {x: mid.x - rect.left, y: mid.y - rect.top};
+      const scaleFactor = pinchStartDist > 0 ? dist / pinchStartDist : 1;
+      // Apply the pinch's scale change anchored at the ORIGINAL midpoint, then add the
+      // midpoint's own on-screen movement as a plain pan -- i.e. pinch to zoom, drag with
+      // two fingers to pan, and both at once if the person does both together.
+      const newZoomRaw = pinchStartZoom * scaleFactor;
+      const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoomRaw));
+      const contentX = (pinchStartMid.x - pinchStartPan.x) / pinchStartZoom;
+      const contentY = (pinchStartMid.y - pinchStartPan.y) / pinchStartZoom;
+      zoom = newZoom;
+      panX = pinchStartMid.x - contentX * zoom + (midInWrap.x - pinchStartMid.x);
+      panY = pinchStartMid.y - contentY * zoom + (midInWrap.y - pinchStartMid.y);
+      clamp();
+      apply();
+    }
+  }
+  function onTouchEnd(e){
+    if(e.pointerType !== 'touch') return;
+    activeTouches.delete(e.pointerId);
+    if(activeTouches.size < 2 && activeTouches.size > 0){
+      // Dropped from 2 fingers to 1 mid-gesture: don't resume marquee/pin-drag with the
+      // remaining finger (its original pointerdown already ran its course or was never
+      // seen by that code) -- just wait for a fresh pointerdown to start anything new.
+    }
+  }
+  window.addEventListener('pointermove', onTouchMove, {passive:false});
+  window.addEventListener('pointerup', onTouchEnd);
+  window.addEventListener('pointercancel', onTouchEnd);
+
+  // ---- sidebar collapse handle ----
+  if(handleEl){
+    let collapsed = false;
+    try{
+      const saved = localStorage.getItem('houseMapSidebarCollapsed');
+      if(saved !== null) collapsed = saved === '1';
+    }catch(e){}
+    function applyCollapsed(){
+      sidebarEl.classList.toggle('collapsed', collapsed);
+      shellEl.classList.toggle('sidebar-collapsed', collapsed);
+      handleEl.title = collapsed ? 'Show sidebar' : 'Hide sidebar';
+    }
+    applyCollapsed();
+    handleEl.addEventListener('click', ()=>{
+      collapsed = !collapsed;
+      applyCollapsed();
+      try{ localStorage.setItem('houseMapSidebarCollapsed', collapsed ? '1' : '0'); }catch(e){}
+    });
+    // Collapsing/expanding changes the wrap's width, which (via its aspect-ratio-driven
+    // canvas) changes its height too -- re-run clamp (pan bounds depend on wrap size) and
+    // let the resize listener below re-sync the sidebar's own matched height continuously
+    // through the collapse transition, same trick as the frozen stat bars use.
+    if(window.ResizeObserver){
+      const ro = new ResizeObserver(()=>{ clamp(); apply(); });
+      ro.observe(wrapEl);
+    }
+  }
 }
 
 let mapResizeListenerAdded = false;
@@ -5022,6 +5332,7 @@ function initMapBoardOnce(){
     return;
   }
   mapInited = true;
+  initMapViewport('');
   mapBoard = mapLoad();
   const img = document.getElementById('mapBgImage');
   if(img) img.src = VALE_MAP_IMG;
@@ -5898,7 +6209,9 @@ function mapSetupFlagPaletteSm(){
 }
 
 function mapSyncSidebarHeightSm(){
-  const canvas = document.getElementById('mapCanvasSm');
+  // See the comment in mapSyncSidebarHeight() -- reads the WRAP, not the canvas, so the
+  // zoom feature scaling the canvas up never balloons the sidebar's matched height.
+  const canvas = document.getElementById('mapCanvasWrapSm');
   const sidebar = document.getElementById('mapSidebarSm');
   if(!canvas || !sidebar) return;
   const h = canvas.getBoundingClientRect().height;
@@ -5913,6 +6226,7 @@ function initMapBoardOnceSm(){
     return;
   }
   mapInitedSm = true;
+  initMapViewport('Sm');
   mapBoardSm = mapLoadSm();
   const img = document.getElementById('mapBgImageSm');
   if(img) img.src = STELLAR_MAIN_MAP_IMG;
@@ -6711,7 +7025,9 @@ function mapSetupFlagPaletteSub(){
 }
 
 function mapSyncSidebarHeightSub(){
-  const canvas = document.getElementById('mapCanvasSub');
+  // See the comment in mapSyncSidebarHeight() -- reads the WRAP, not the canvas, so the
+  // zoom feature scaling the canvas up never balloons the sidebar's matched height.
+  const canvas = document.getElementById('mapCanvasWrapSub');
   const sidebar = document.getElementById('mapSidebarSub');
   if(!canvas || !sidebar) return;
   const h = canvas.getBoundingClientRect().height;
@@ -6726,6 +7042,7 @@ function initMapBoardOnceSub(){
     return;
   }
   mapInitedSub = true;
+  initMapViewport('Sub');
   mapBoardSub = mapLoadSub();
   const img = document.getElementById('mapBgImageSub');
   if(img) img.src = STELLAR_SUB_MAP_IMG;
