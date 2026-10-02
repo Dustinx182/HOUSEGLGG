@@ -2020,7 +2020,13 @@ function sortByKey(list, sortBy, sortOrder, metricsFn){
 
 function renderMetricChips(ev){
   return ev.checks.map(c=>{
-    if(c.passFinal===null) return `<div class="metric na"><div class="mv">${c.val ?? '—'}</div><div class="mt">${c.label}</div></div>`;
+    // valDisplay lets a check show something other than its raw scored value — right now only
+    // Vale's Flags check uses this, to show the S/A/B tier breakdown (e.g. "3/4/1") in place of
+    // the combined total, while the pass/fail target underneath still runs on that total.
+    const shown = c.valDisplay ?? c.val;
+    const tierTitle = c.valDisplay ? ` title="S/A/B flags captured"` : '';
+    const labelText = c.valDisplay ? `${c.label} (S/A/B)` : c.label;
+    if(c.passFinal===null) return `<div class="metric na"><div class="mv"${tierTitle}>${shown ?? '—'}</div><div class="mt">${labelText}</div></div>`;
     // both tags stay silent when the comparison is unfavorable — they exist to add favorable or
     // neutral context, so a chip that already reads red doesn't get piled onto a second and third time
     const fmt = v => Math.round(v*10)/10;
@@ -2031,7 +2037,7 @@ function renderMetricChips(ev){
     };
     const tag = tagFor(c.vsMedian, c.baseVal, 'HOUSE median', 'mtag')
               + tagFor(c.vsMatch, c.matchVal_, 'match median', 'mtag-match');
-    return `<div class="metric ${c.passFinal?'pass':'fail'}"><div class="mv">${c.val}</div><div class="mt">${c.label} /${c.target}</div>${tag}</div>`;
+    return `<div class="metric ${c.passFinal?'pass':'fail'}"><div class="mv"${tierTitle}>${shown}</div><div class="mt">${labelText} /${c.target}</div>${tag}</div>`;
   }).join('');
 }
 
@@ -3035,7 +3041,10 @@ function valeEvalPlayer(p){
   const ctfVal = valeCtfTotal(p);
   const mm = VALE_MATCH_MEDIANS[`${p.bf}|${p.match}|${p.job}`] || {};
   const checks = [
-    {label:'Flags', val:ctfVal, target:kpi.ctf, pass: kpi.ctf===null ? null : ctfVal>=kpi.ctf, ceil:false,
+    // Scoring still runs on the combined S+A+B total (the single "objective" KPI, by design —
+    // see the Vale scoring note above) — only the displayed value is broken out per-tier, in the
+    // same S/A/B order the original screenshots show, so the chip reads like the source sheet.
+    {label:'Flags', val:ctfVal, valDisplay:`${p.ctfS}/${p.ctfA}/${p.ctfB}`, target:kpi.ctf, pass: kpi.ctf===null ? null : ctfVal>=kpi.ctf, ceil:false,
      vsMedian: vsMedian(ctfVal, baseline.ctf, false), baseVal: baseline.ctf,
      vsMatch: vsMedian(ctfVal, mm.ctf, false), matchVal_: mm.ctf},
     {label:'Kills', val:p.k, target:kpi.k, pass: kpi.k===null ? null : p.k>=kpi.k, ceil:false,
