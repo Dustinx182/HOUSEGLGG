@@ -677,14 +677,14 @@
   -webkit-overflow-scrolling:touch; background:#0a0c10;
   border-top:1px solid var(--border); border-bottom:1px solid var(--border);
 }
-/* max-height is set from JS (mapSyncSidebarHeight), pinned to the canvas's own actual
-   rendered height, and kept in sync on resize. Flex stretch alone can't do this: the
-   sidebar's content (16 parties + presets) is often taller than the aspect-ratio-boxed
-   canvas, and whichever of the two is taller ends up dictating the flex row's height —
-   leaving a gap filled by .map-shell's own dark background next to whichever is shorter.
-   Explicitly capping the sidebar to match the canvas, with overflow-y:auto to scroll its
-   own content within that, is what actually keeps the two the same height. 80vh below is
-   just the pre-JS fallback so there's a sane size before the very first sync runs. */
+/* height is set from JS (mapSyncSidebarHeight), to whatever's actually left of the browser
+   window below this shell -- so opening Map view fits the whole thing (sidebar + canvas) on
+   screen without having to scroll the page up/down to see the rest of it, on any monitor or
+   phone. max-height on .map-sidebar mirrors that same number: flex stretch alone can't be
+   relied on here, since the sidebar's own content (16 parties + presets) is often taller than
+   the shell, and without an explicit cap it would just push the whole row taller instead of
+   scrolling internally. 80vh below is only the pre-JS fallback, for the instant before the
+   very first sync runs. */
 .map-sidebar{
   flex:0 0 250px; width:250px; position:sticky; left:0; top:0; z-index:6;
   max-height:80vh;
@@ -801,22 +801,41 @@
 /* overflow:hidden makes this the fixed-size "viewport" onto the map: .map-canvas inside it
    gets panned/zoomed via a CSS transform (see initMapViewport), and since a transform never
    changes an element's own LAYOUT size (only its painted position/scale), this wrap's own
-   height -- which comes purely from .map-canvas's untransformed aspect-ratio box -- never
-   moves around as the person zooms in and out. That's what keeps this a stable "window" rather
-   than a box that grows/shrinks with the zoom level. */
-.map-canvas-wrap{flex:1 1 auto; position:relative; overflow:hidden;}
-/* aspect-ratio is set inline from the actual image's own dimensions (see build script), so the
-   canvas box always matches the source image exactly — nothing gets cropped top/bottom, and
-   object-fit:contain below is just a safety net for any sub-pixel rounding, never a real crop.
-   transform-origin:0 0 matches the translate/scale math in initMapViewport, which treats
-   (0,0) -- the canvas's own top-left corner -- as the zoom/pan anchor. */
+   height never moves around as the person zooms in and out. That's what keeps this a stable
+   "window" rather than a box that grows/shrinks with the zoom level.
+   display:flex + centering is a defensive fallback for .map-canvas's BASE (zoom=1) size:
+   initMapViewport's fitCanvasToWrap() always sizes the canvas to match this wrap exactly in
+   both dimensions (see that function's own comment for why), so in practice there's no
+   leftover space left to center -- this only still matters for the instant before that JS
+   first runs, and against any stray sub-pixel rounding between the two afterward. */
+.map-canvas-wrap{
+  flex:1 1 auto; position:relative; overflow:hidden;
+  display:flex; align-items:center; justify-content:center;
+}
+/* aspect-ratio is set inline from the actual image's own dimensions (see build script) purely
+   as a pre-JS fallback, so the box looks reasonably proportioned for the instant before
+   fitCanvasToWrap() runs and takes over -- from then on this box always matches .map-canvas-wrap
+   exactly in BOTH dimensions (see that function's own comment for why), so the aspect-ratio
+   stops applying in practice. transform-origin:0 0 matches the translate/scale math in
+   initMapViewport, which treats (0,0) -- the canvas's own top-left corner -- as the zoom/pan
+   anchor. width/height are set inline in px by fitCanvasToWrap() once JS runs; the 100% here
+   is only that same pre-JS fallback. */
 .map-canvas{
-  position:relative; width:100%; background:#0a0c10; overflow:hidden;
+  position:relative; width:100%; background:#0a0c10; overflow:hidden; flex:0 0 auto;
   touch-action:none; -webkit-touch-callout:none;
   transform-origin:0 0; will-change:transform;
 }
+/* Applied only for the duration of a +/-/FIT button click (see "animated()" in
+   initMapViewport) so that jump reads as a deliberate eased move; wheel-zoom and drag/pinch
+   pan never get this class, since a transition there would add visible lag behind the pointer. */
+.map-canvas.zoom-anim{transition:transform 0.26s cubic-bezier(0.22,0.61,0.36,1);}
+/* object-fit:fill (not contain) to match fitCanvasToWrap() always sizing .map-canvas to the
+   wrap's own proportions rather than the image's: this stretches the art non-uniformly
+   whenever those two ratios differ, instead of leaving letterbox bars or cropping the image's
+   own edges. Pins and flags are positioned by plain x%/y% within this same box, so they
+   stretch right along with the art and stay aligned with it either way. */
 .map-canvas img{
-  position:absolute; inset:0; width:100%; height:100%; object-fit:contain; object-position:center;
+  position:absolute; inset:0; width:100%; height:100%; object-fit:fill; object-position:center;
   user-select:none; pointer-events:none; -webkit-user-drag:none;
 }
 .map-pins-layer{position:absolute; inset:0;}
@@ -832,10 +851,16 @@
 .map-canvas.draw-active .map-pin{pointer-events:none;}
 
 .map-draw-toolbar{
-  position:sticky; left:8px; top:8px; z-index:20; width:max-content; max-width:calc(100vw - 40px);
+  /* absolute (not sticky) and anchored to the WRAP, not the canvas: .map-canvas-wrap is now a
+     flex container centering .map-canvas inside it (see the comment there), and a sticky toolbar
+     would otherwise become a flex item itself, subject to that same centering instead of staying
+     pinned to the viewport's top-left corner. Positioning it absolute against the wrap (the
+     nearest positioned ancestor) keeps it pinned there regardless of how the canvas is sized or
+     centered inside it, and regardless of zoom/pan (it isn't a child of the transformed canvas). */
+  position:absolute; left:8px; top:8px; z-index:20; width:max-content; max-width:calc(100% - 16px);
   display:flex; flex-wrap:wrap; align-items:center; gap:9px;
   background:rgba(10,12,16,0.92); border:1px solid var(--border); border-radius:11px;
-  padding:7px 9px; margin:8px 0 8px 8px; box-shadow:0 4px 14px rgba(0,0,0,0.4);
+  padding:7px 9px; box-shadow:0 4px 14px rgba(0,0,0,0.4);
 }
 [data-theme="light"] .map-draw-toolbar{background:rgba(255,255,255,0.95);}
 .map-draw-group{display:flex; align-items:center; gap:5px;}
@@ -980,7 +1005,7 @@
 }
 [data-theme="light"] .map-zoom-hint{background:rgba(255,255,255,0.82);}
 @media (max-width:640px){
-  .map-zoom-hint{display:none;} /* the gesture it describes (middle-click drag) is desktop-only */
+  .map-zoom-hint{display:none;} /* hidden on small screens to save space -- the zoom controls' buttons are still there */
 }
 
 </style>
@@ -1383,7 +1408,7 @@
           <div class="map-pins-layer" id="mapPinsLayerSm"></div>
           <div class="map-flags-layer" id="mapFlagsLayerSm"></div>
         </div>
-        <div class="map-zoom-hint">Scroll to zoom · middle-click drag to pan · pinch/2-finger drag on phone</div>
+        <div class="map-zoom-hint">Scroll to zoom · drag to select · right/middle-click drag to pan · pinch/2-finger drag on phone</div>
         <div class="map-zoom-controls" data-suffix="Sm">
           <button type="button" class="map-zoom-btn" data-zoom="in" title="Zoom in">+</button>
           <button type="button" class="map-zoom-btn" data-zoom="out" title="Zoom out">−</button>
@@ -1484,7 +1509,7 @@
           <div class="map-pins-layer" id="mapPinsLayerSub"></div>
           <div class="map-flags-layer" id="mapFlagsLayerSub"></div>
         </div>
-        <div class="map-zoom-hint">Scroll to zoom · middle-click drag to pan · pinch/2-finger drag on phone</div>
+        <div class="map-zoom-hint">Scroll to zoom · drag to select · right/middle-click drag to pan · pinch/2-finger drag on phone</div>
         <div class="map-zoom-controls" data-suffix="Sub">
           <button type="button" class="map-zoom-btn" data-zoom="in" title="Zoom in">+</button>
           <button type="button" class="map-zoom-btn" data-zoom="out" title="Zoom out">−</button>
@@ -1584,7 +1609,7 @@
           <div class="map-pins-layer" id="mapPinsLayer"></div>
           <div class="map-flags-layer" id="mapFlagsLayer"></div>
         </div>
-        <div class="map-zoom-hint">Scroll to zoom · middle-click drag to pan · pinch/2-finger drag on phone</div>
+        <div class="map-zoom-hint">Scroll to zoom · drag to select · right/middle-click drag to pan · pinch/2-finger drag on phone</div>
         <div class="map-zoom-controls" data-suffix="">
           <button type="button" class="map-zoom-btn" data-zoom="in" title="Zoom in">+</button>
           <button type="button" class="map-zoom-btn" data-zoom="out" title="Zoom out">−</button>
@@ -3015,6 +3040,19 @@ initStickyCollapsible(document.getElementById('frozenControls'), 'houseFrozenCon
 initStickyCollapsible(document.getElementById('kpiFilters'), 'houseKpiFiltersCollapsed');
 initStickyCollapsible(document.getElementById('valeKpiFilters'), 'houseValeKpiFiltersCollapsed');
 
+// The map view's own viewport-fit sizing (mapSyncSidebarHeight*(), defined further down) also
+// needs to re-run whenever the frozen toggle stack above it changes height -- collapsing it
+// frees up extra room the map should immediately grow into, same trigger as the is-stuck
+// rechecks above. Harmless no-ops while a given map instance hasn't been opened yet (each
+// function bails out if its shell isn't in the DOM in a meaningful state) or isn't currently
+// visible (setting height/maxHeight on a display:none element is inert).
+window.__stickyCollapsibles = window.__stickyCollapsibles || [];
+window.__stickyCollapsibles.push(
+  ()=>{ if(typeof mapSyncSidebarHeight === 'function') mapSyncSidebarHeight(); },
+  ()=>{ if(typeof mapSyncSidebarHeightSm === 'function') mapSyncSidebarHeightSm(); },
+  ()=>{ if(typeof mapSyncSidebarHeightSub === 'function') mapSyncSidebarHeightSub(); }
+);
+
 // ---------- wiring ----------
 function setupToggle(id, onChange){
   const el = document.getElementById(id);
@@ -4268,8 +4306,38 @@ function mapFilledCount(party){
     : party.members.filter(m=>m.role.trim()).length;
 }
 
+// Keeps an expanded party card fully readable when its pin sits near the edge of the map.
+// CSS alone (position:absolute, centered under the pin via translateX(-50%)) has no idea
+// where the canvas's own boundary is, so a pin within half the card's width of that edge used
+// to get its card silently cut off by the canvas's overflow:hidden -- a truncated "HOUSE ·
+// PARTY 4" header and dead dropdown rows past the edge, not an error, just unreachable. Called
+// right after the card is attached to the live DOM (so getBoundingClientRect reflects real
+// layout) for every one of the three map instances, nudging it back in bounds instead.
+function mapClampPinCard(card, canvasEl){
+  if(!card || !canvasEl) return;
+  const pad = 8;
+  const cardRect = card.getBoundingClientRect();
+  const canvasRect = canvasEl.getBoundingClientRect();
+  let shiftX = 0, shiftY = 0;
+  if(cardRect.left < canvasRect.left + pad){
+    shiftX = (canvasRect.left + pad) - cardRect.left;
+  } else if(cardRect.right > canvasRect.right - pad){
+    shiftX = (canvasRect.right - pad) - cardRect.right;
+  }
+  // Only the bottom edge needs checking -- the card always renders BELOW its pin (top:20px),
+  // so it can only ever run past the canvas's bottom when the pin sits very close to y=100%,
+  // never past the top.
+  if(cardRect.bottom > canvasRect.bottom - pad){
+    shiftY = (canvasRect.bottom - pad) - cardRect.bottom;
+  }
+  if(shiftX || shiftY){
+    card.style.transform = `translate(calc(-50% + ${shiftX}px), ${shiftY}px)`;
+  }
+}
+
 function mapRenderPins(){
   const layer = document.getElementById('mapPinsLayer');
+  const canvasEl = document.getElementById('mapCanvas');
   if(!layer || !mapBoard) return;
   layer.innerHTML = '';
   const roster = mapValeRoster();
@@ -4326,6 +4394,7 @@ function mapRenderPins(){
     }
 
     layer.appendChild(pin);
+    if(party.expanded) mapClampPinCard(pin.querySelector('.map-pin-card'), canvasEl);
   });
 
   layer.querySelectorAll('.map-member-role').forEach(sel=>{
@@ -4458,8 +4527,16 @@ function mapSetupMarqueeSelect(){
     const marqueeEl = document.createElement('div');
     marqueeEl.className = 'map-marquee';
     const startRect = canvasEl.getBoundingClientRect();
-    marqueeEl.style.left = (startX - startRect.left) + 'px';
-    marqueeEl.style.top = (startY - startRect.top) + 'px';
+    // marqueeEl is a CHILD of canvasEl, so its own left/top/width/height are specified in
+    // canvasEl's LOCAL (pre-zoom) coordinate space -- the browser re-scales them automatically
+    // along with everything else inside canvasEl's transform. getBoundingClientRect(), on the
+    // other hand, always reports SCREEN pixels (already multiplied by the current zoom). This
+    // scale factor (screen px per local px) converts mouse deltas back to local units before
+    // they're assigned to the marquee's style, which is what keeps the box's visible size and
+    // position matching the pointer exactly, at any zoom level.
+    const startSf = startRect.width / canvasEl.offsetWidth;
+    marqueeEl.style.left = ((startX - startRect.left) / startSf) + 'px';
+    marqueeEl.style.top = ((startY - startRect.top) / startSf) + 'px';
     marqueeEl.style.width = '0px';
     marqueeEl.style.height = '0px';
     canvasEl.appendChild(marqueeEl);
@@ -4469,8 +4546,9 @@ function mapSetupMarqueeSelect(){
       const dx = ev.clientX - startX, dy = ev.clientY - startY;
       if(Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
       const rect = canvasEl.getBoundingClientRect();
-      const x1 = Math.min(startX, ev.clientX) - rect.left, x2 = Math.max(startX, ev.clientX) - rect.left;
-      const y1 = Math.min(startY, ev.clientY) - rect.top, y2 = Math.max(startY, ev.clientY) - rect.top;
+      const sf = rect.width / canvasEl.offsetWidth;
+      const x1 = (Math.min(startX, ev.clientX) - rect.left) / sf, x2 = (Math.max(startX, ev.clientX) - rect.left) / sf;
+      const y1 = (Math.min(startY, ev.clientY) - rect.top) / sf, y2 = (Math.max(startY, ev.clientY) - rect.top) / sf;
       marqueeEl.style.left = x1 + 'px';
       marqueeEl.style.top = y1 + 'px';
       marqueeEl.style.width = (x2 - x1) + 'px';
@@ -5081,21 +5159,45 @@ function mapSetupFlagPalette(){
   });
 }
 
-// Keeps the sidebar's height pinned to the canvas's actual rendered height (see the
-// comment on .map-sidebar for why this can't be done in pure CSS). Re-run on resize
-// since the canvas's height changes with viewport width (it's aspect-ratio driven).
+// Sizes the WHOLE map view (.map-shell: sidebar + canvas together) to fit inside the visible
+// viewport, so opening Map view never requires scrolling the page up/down to see the rest of
+// it. The available height is MEASURED LIVE -- this shell's own distance from the top of the
+// viewport, subtracted from window.innerHeight -- rather than any fixed number, so it comes
+// out correct automatically for any screen resolution, whether the frozen header toggles are
+// collapsed or expanded, and for whichever of the three map instances is showing (Stellar's
+// extra Main/Sub battlefield toggle row included, since it's whatever sits above THIS shell
+// that gets measured, not a guessed constant).
+// getBoundingClientRect().top is relative to the current scroll position, so + window.scrollY
+// converts it to this shell's fixed position in the DOCUMENT -- stable no matter where the
+// page happens to be scrolled at the moment this runs (sticky positioning on the bars above
+// doesn't change their layout slot, only where they're painted, so this stays correct even
+// while one of them is actively pinned).
+// The bottom margin is READ from the page's own CSS (body's padding-bottom + #mapSection's
+// own padding-bottom) rather than hardcoded, so this keeps matching reality even if either of
+// those ever changes -- plus a few px of rounding slack so a sub-pixel layout difference never
+// forces a visible 1px scrollbar. 320px is a floor so the map/sidebar never get squeezed into
+// something unusably small on a very short viewport -- the page is allowed to need a bit of
+// scrolling in that edge case instead.
+// Re-run on resize, and every time this instance's map re-enters view (switching back from
+// Player view, or between Stellar/Vale or Main/Sub while already in Map view) -- see the
+// initMapBoardOnce()-style callers of this function for exactly which triggers those are.
+function mapBottomMargin(){
+  const bodyPB = parseFloat(getComputedStyle(document.body).paddingBottom) || 0;
+  const section = document.getElementById('mapSection');
+  const sectionPB = section ? (parseFloat(getComputedStyle(section).paddingBottom) || 0) : 0;
+  return bodyPB + sectionPB + 4;
+}
 function mapSyncSidebarHeight(){
-  // Reads the WRAP's height, not the canvas's: the canvas can be scaled up by the zoom
-  // feature (initMapViewport), and getBoundingClientRect() always reports that scaled-up
-  // render size, which would otherwise make the sidebar balloon to match a zoomed-in map.
-  // The wrap's own height stays fixed at the un-zoomed size regardless of zoom level (a
-  // CSS transform never changes an element's layout size, only how it paints, so a parent
-  // that auto-sizes to the child's layout box is unaffected by the child's zoom transform).
-  const canvas = document.getElementById('mapCanvasWrap');
+  const shell = document.getElementById('mapShell');
   const sidebar = document.getElementById('mapSidebar');
-  if(!canvas || !sidebar) return;
-  const h = canvas.getBoundingClientRect().height;
-  if(h > 0) sidebar.style.maxHeight = h + 'px';
+  if(!shell || !sidebar) return;
+  const top = shell.getBoundingClientRect().top + window.scrollY;
+  const avail = Math.max(320, window.innerHeight - top - mapBottomMargin());
+  shell.style.height = avail + 'px';
+  sidebar.style.maxHeight = avail + 'px';
+  // Re-fit this instance's canvas (and its drawing layer) to the shell's new size -- defined
+  // inside initMapViewport('') where the pan/zoom state actually lives.
+  if(typeof window.mapRefit === 'function') window.mapRefit();
 }
 
 // ---------- map viewport: pan, zoom, and sidebar collapse ----------
@@ -5134,7 +5236,30 @@ function initMapViewport(suffix){
   // ---- pan/zoom state ----
   const MIN_ZOOM = 1, MAX_ZOOM = 4;
   let zoom = 1, panX = 0, panY = 0;
+  const drawRedrawFn = window['mapDrawRedrawAll' + suffix];
 
+  // Sizes .map-canvas to exactly match the wrap, in BOTH dimensions, always -- this is the
+  // whole interactive canvas, image + pins + flags + drawing, not just the <img>.
+  // Earlier versions of this tried to preserve the map image's true proportions: first by
+  // shrinking to whichever dimension fit without overflowing either one (like
+  // object-fit:contain), which left empty bars down the sides whenever the wrap was
+  // proportionally wider than the image -- which it usually is, once the map view fills the
+  // browser's full height (see mapSyncSidebarHeight()) on an ordinary landscape monitor. The
+  // next attempt instead always filled the wrap's width and let any extra height get cropped
+  // off the top and bottom -- no more bars, but it could crop away a pin someone had placed
+  // near the map's own top or bottom edge, hiding it by default until they panned to find it,
+  // which is worse than a cosmetic bar. Matching the wrap exactly avoids both problems: nothing
+  // is ever cropped out of view and there's never a bar, at the cost of the map image itself
+  // being stretched non-uniformly to match whenever the wrap's proportions don't happen to
+  // match the image's own (the .map-canvas img rule below switches to object-fit:fill to
+  // follow suit, so the art and the pins/flags percentage-positioned on top of it always
+  // stretch together and stay aligned with each other).
+  function fitCanvasToWrap(){
+    const cw = wrapEl.clientWidth, ch = wrapEl.clientHeight;
+    if(cw < 1 || ch < 1) return;
+    canvasEl.style.width = cw + 'px';
+    canvasEl.style.height = ch + 'px';
+  }
   function clamp(){
     const cw = wrapEl.clientWidth, ch = wrapEl.clientHeight;
     const natW = canvasEl.offsetWidth, natH = canvasEl.offsetHeight; // layout size -- transform-stable
@@ -5146,6 +5271,19 @@ function initMapViewport(suffix){
   function apply(){
     canvasEl.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
   }
+  // Re-fits the canvas to the wrap's current size, then re-applies the current pan/zoom
+  // (clamped to the new size) and resyncs the drawing layer's own bitmap resolution -- call
+  // this whenever the WRAP's box might have changed (resize, sidebar collapse, orientation).
+  function refit(){
+    fitCanvasToWrap();
+    clamp();
+    apply();
+    if(typeof drawRedrawFn === 'function') drawRedrawFn();
+  }
+  // Exposed so mapSyncSidebarHeight*() (a separate, non-nested function -- see its own
+  // comment) can re-fit this instance's canvas right after it resizes .map-shell to match
+  // the viewport, without duplicating the pan/zoom/redraw state that only this closure has.
+  window['mapRefit' + suffix] = refit;
   function zoomAt(px, py, newZoomRaw){
     const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoomRaw));
     if(newZoom === zoom){ return; }
@@ -5161,10 +5299,22 @@ function initMapViewport(suffix){
     clamp();
     apply();
   }
+  // Button-triggered changes (+/-/FIT) get a brief eased transition so the jump reads as a
+  // deliberate animated move; wheel/drag/pinch stay transition-free so they track the pointer
+  // with zero added latency (a transition there would make them feel laggy/rubbery).
+  let animTimer = null;
+  function animated(fn){
+    canvasEl.classList.add('zoom-anim');
+    fn();
+    clearTimeout(animTimer);
+    animTimer = setTimeout(()=>canvasEl.classList.remove('zoom-anim'), 260);
+  }
   function resetView(){
     zoom = 1; panX = 0; panY = 0;
     apply();
   }
+  fitCanvasToWrap();
+  apply();
 
   // ---- wheel = zoom, centered on the cursor ----
   wrapEl.addEventListener('wheel', (e)=>{
@@ -5181,36 +5331,45 @@ function initMapViewport(suffix){
       const btn = e.target.closest('.map-zoom-btn');
       if(!btn) return;
       const cx = wrapEl.clientWidth / 2, cy = wrapEl.clientHeight / 2;
-      if(btn.dataset.zoom === 'in') zoomAt(cx, cy, zoom * 1.4);
-      else if(btn.dataset.zoom === 'out') zoomAt(cx, cy, zoom / 1.4);
-      else resetView();
+      if(btn.dataset.zoom === 'in') animated(()=>zoomAt(cx, cy, zoom * 1.4));
+      else if(btn.dataset.zoom === 'out') animated(()=>zoomAt(cx, cy, zoom / 1.4));
+      else animated(resetView);
     });
   }
 
-  // ---- middle-mouse-button drag = pan ----
+  // ---- drag to pan: right-click or middle-click (plain left-click stays marquee-select) ----
+  // Plain left-drag keeps its original meaning (box-select, wired up in its own pointerdown
+  // listener elsewhere) since that's existing behavior people already rely on. Right-click-drag
+  // and middle-click-drag are ADDED as pan gestures -- both are already "free" (nothing else
+  // uses them here), and right-click-drag in particular is the standard two-finger-tap+drag
+  // pan gesture on a trackpad, so it's the most discoverable no-extra-modifier option for a
+  // laptop user with no literal middle mouse button.
   wrapEl.addEventListener('pointerdown', (e)=>{
-    if(e.pointerType !== 'touch' && e.button === 1){
-      e.preventDefault();
-      e.stopPropagation();
-      const startX = e.clientX, startY = e.clientY;
-      const pointerId = e.pointerId;
-      let lastX = startX, lastY = startY;
-      const onMoveDelta = (ev)=>{
-        if(ev.pointerId !== pointerId) return;
-        panBy(ev.clientX - lastX, ev.clientY - lastY);
-        lastX = ev.clientX; lastY = ev.clientY;
-      };
-      const onUp = (ev)=>{
-        if(ev.pointerId !== pointerId) return;
-        window.removeEventListener('pointermove', onMoveDelta);
-        window.removeEventListener('pointerup', onUp);
-        window.removeEventListener('pointercancel', onUp);
-      };
-      window.addEventListener('pointermove', onMoveDelta);
-      window.addEventListener('pointerup', onUp);
-      window.addEventListener('pointercancel', onUp);
-    }
+    if(e.pointerType === 'touch') return; // touch has its own 1-finger/2-finger handling below
+    if(e.target.closest('.map-pin') || e.target.closest('.map-flag')) return; // their own drag/click
+    if(e.target.closest('.map-zoom-controls') || e.target.closest('.map-sidebar-collapse-handle') || e.target.closest('.map-draw-toolbar')) return;
+    if(e.button !== 1 && e.button !== 2) return; // left-click: let it fall through to marquee-select
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX, startY = e.clientY;
+    const pointerId = e.pointerId;
+    let lastX = startX, lastY = startY;
+    const onMoveDelta = (ev)=>{
+      if(ev.pointerId !== pointerId) return;
+      panBy(ev.clientX - lastX, ev.clientY - lastY);
+      lastX = ev.clientX; lastY = ev.clientY;
+    };
+    const onUp = (ev)=>{
+      if(ev.pointerId !== pointerId) return;
+      window.removeEventListener('pointermove', onMoveDelta);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+    window.addEventListener('pointermove', onMoveDelta);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
   }, {capture:true});
+  wrapEl.addEventListener('contextmenu', (e)=> e.preventDefault());
 
   // ---- touch: 2-finger pinch-zoom + pan, without disturbing 1-finger marquee/pin-drag ----
   const activeTouches = new Map(); // pointerId -> {x,y}
@@ -5313,14 +5472,16 @@ function initMapViewport(suffix){
       applyCollapsed();
       try{ localStorage.setItem('houseMapSidebarCollapsed', collapsed ? '1' : '0'); }catch(e){}
     });
-    // Collapsing/expanding changes the wrap's width, which (via its aspect-ratio-driven
-    // canvas) changes its height too -- re-run clamp (pan bounds depend on wrap size) and
-    // let the resize listener below re-sync the sidebar's own matched height continuously
-    // through the collapse transition, same trick as the frozen stat bars use.
-    if(window.ResizeObserver){
-      const ro = new ResizeObserver(()=>{ clamp(); apply(); });
-      ro.observe(wrapEl);
-    }
+  }
+  // Re-fit + re-clamp whenever the wrap's own box changes size for ANY reason -- window
+  // resize, orientation change, or the sidebar collapsing/expanding above (that CSS
+  // transition fires many intermediate resize events, so this keeps the canvas's fit and
+  // the pan bounds continuously correct throughout it, not just at the two endpoints).
+  if(window.ResizeObserver){
+    const ro = new ResizeObserver(()=>{ refit(); });
+    ro.observe(wrapEl);
+  } else {
+    window.addEventListener('resize', refit);
   }
 }
 
@@ -5516,6 +5677,7 @@ function mapStellarMainRoster(){
 
 function mapRenderPinsSm(){
   const layer = document.getElementById('mapPinsLayerSm');
+  const canvasEl = document.getElementById('mapCanvasSm');
   if(!layer || !mapBoardSm) return;
   layer.innerHTML = '';
   const roster = mapStellarMainRoster();
@@ -5570,6 +5732,7 @@ function mapRenderPinsSm(){
     }
 
     layer.appendChild(pin);
+    if(party.expanded) mapClampPinCard(pin.querySelector('.map-pin-card'), canvasEl);
   });
 
   layer.querySelectorAll('.map-member-role').forEach(sel=>{
@@ -5681,8 +5844,16 @@ function mapSetupMarqueeSelectSm(){
     const marqueeEl = document.createElement('div');
     marqueeEl.className = 'map-marquee';
     const startRect = canvasEl.getBoundingClientRect();
-    marqueeEl.style.left = (startX - startRect.left) + 'px';
-    marqueeEl.style.top = (startY - startRect.top) + 'px';
+    // marqueeEl is a CHILD of canvasEl, so its own left/top/width/height are specified in
+    // canvasEl's LOCAL (pre-zoom) coordinate space -- the browser re-scales them automatically
+    // along with everything else inside canvasEl's transform. getBoundingClientRect(), on the
+    // other hand, always reports SCREEN pixels (already multiplied by the current zoom). This
+    // scale factor (screen px per local px) converts mouse deltas back to local units before
+    // they're assigned to the marquee's style, which is what keeps the box's visible size and
+    // position matching the pointer exactly, at any zoom level.
+    const startSf = startRect.width / canvasEl.offsetWidth;
+    marqueeEl.style.left = ((startX - startRect.left) / startSf) + 'px';
+    marqueeEl.style.top = ((startY - startRect.top) / startSf) + 'px';
     marqueeEl.style.width = '0px';
     marqueeEl.style.height = '0px';
     canvasEl.appendChild(marqueeEl);
@@ -5692,8 +5863,9 @@ function mapSetupMarqueeSelectSm(){
       const dx = ev.clientX - startX, dy = ev.clientY - startY;
       if(Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
       const rect = canvasEl.getBoundingClientRect();
-      const x1 = Math.min(startX, ev.clientX) - rect.left, x2 = Math.max(startX, ev.clientX) - rect.left;
-      const y1 = Math.min(startY, ev.clientY) - rect.top, y2 = Math.max(startY, ev.clientY) - rect.top;
+      const sf = rect.width / canvasEl.offsetWidth;
+      const x1 = (Math.min(startX, ev.clientX) - rect.left) / sf, x2 = (Math.max(startX, ev.clientX) - rect.left) / sf;
+      const y1 = (Math.min(startY, ev.clientY) - rect.top) / sf, y2 = (Math.max(startY, ev.clientY) - rect.top) / sf;
       marqueeEl.style.left = x1 + 'px';
       marqueeEl.style.top = y1 + 'px';
       marqueeEl.style.width = (x2 - x1) + 'px';
@@ -6208,14 +6380,16 @@ function mapSetupFlagPaletteSm(){
   });
 }
 
+// See the comment on mapSyncSidebarHeight() -- same viewport-fit logic, this instance's ids.
 function mapSyncSidebarHeightSm(){
-  // See the comment in mapSyncSidebarHeight() -- reads the WRAP, not the canvas, so the
-  // zoom feature scaling the canvas up never balloons the sidebar's matched height.
-  const canvas = document.getElementById('mapCanvasWrapSm');
+  const shell = document.getElementById('mapShellSm');
   const sidebar = document.getElementById('mapSidebarSm');
-  if(!canvas || !sidebar) return;
-  const h = canvas.getBoundingClientRect().height;
-  if(h > 0) sidebar.style.maxHeight = h + 'px';
+  if(!shell || !sidebar) return;
+  const top = shell.getBoundingClientRect().top + window.scrollY;
+  const avail = Math.max(320, window.innerHeight - top - mapBottomMargin());
+  shell.style.height = avail + 'px';
+  sidebar.style.maxHeight = avail + 'px';
+  if(typeof window.mapRefitSm === 'function') window.mapRefitSm();
 }
 
 let mapResizeListenerAddedSm = false;
@@ -6331,6 +6505,7 @@ function mapStellarSubRoster(){
 
 function mapRenderPinsSub(){
   const layer = document.getElementById('mapPinsLayerSub');
+  const canvasEl = document.getElementById('mapCanvasSub');
   if(!layer || !mapBoardSub) return;
   layer.innerHTML = '';
   const roster = mapStellarSubRoster();
@@ -6385,6 +6560,7 @@ function mapRenderPinsSub(){
     }
 
     layer.appendChild(pin);
+    if(party.expanded) mapClampPinCard(pin.querySelector('.map-pin-card'), canvasEl);
   });
 
   layer.querySelectorAll('.map-member-role').forEach(sel=>{
@@ -6496,8 +6672,16 @@ function mapSetupMarqueeSelectSub(){
     const marqueeEl = document.createElement('div');
     marqueeEl.className = 'map-marquee';
     const startRect = canvasEl.getBoundingClientRect();
-    marqueeEl.style.left = (startX - startRect.left) + 'px';
-    marqueeEl.style.top = (startY - startRect.top) + 'px';
+    // marqueeEl is a CHILD of canvasEl, so its own left/top/width/height are specified in
+    // canvasEl's LOCAL (pre-zoom) coordinate space -- the browser re-scales them automatically
+    // along with everything else inside canvasEl's transform. getBoundingClientRect(), on the
+    // other hand, always reports SCREEN pixels (already multiplied by the current zoom). This
+    // scale factor (screen px per local px) converts mouse deltas back to local units before
+    // they're assigned to the marquee's style, which is what keeps the box's visible size and
+    // position matching the pointer exactly, at any zoom level.
+    const startSf = startRect.width / canvasEl.offsetWidth;
+    marqueeEl.style.left = ((startX - startRect.left) / startSf) + 'px';
+    marqueeEl.style.top = ((startY - startRect.top) / startSf) + 'px';
     marqueeEl.style.width = '0px';
     marqueeEl.style.height = '0px';
     canvasEl.appendChild(marqueeEl);
@@ -6507,8 +6691,9 @@ function mapSetupMarqueeSelectSub(){
       const dx = ev.clientX - startX, dy = ev.clientY - startY;
       if(Math.abs(dx) > 4 || Math.abs(dy) > 4) moved = true;
       const rect = canvasEl.getBoundingClientRect();
-      const x1 = Math.min(startX, ev.clientX) - rect.left, x2 = Math.max(startX, ev.clientX) - rect.left;
-      const y1 = Math.min(startY, ev.clientY) - rect.top, y2 = Math.max(startY, ev.clientY) - rect.top;
+      const sf = rect.width / canvasEl.offsetWidth;
+      const x1 = (Math.min(startX, ev.clientX) - rect.left) / sf, x2 = (Math.max(startX, ev.clientX) - rect.left) / sf;
+      const y1 = (Math.min(startY, ev.clientY) - rect.top) / sf, y2 = (Math.max(startY, ev.clientY) - rect.top) / sf;
       marqueeEl.style.left = x1 + 'px';
       marqueeEl.style.top = y1 + 'px';
       marqueeEl.style.width = (x2 - x1) + 'px';
@@ -7024,14 +7209,16 @@ function mapSetupFlagPaletteSub(){
   });
 }
 
+// See the comment on mapSyncSidebarHeight() -- same viewport-fit logic, this instance's ids.
 function mapSyncSidebarHeightSub(){
-  // See the comment in mapSyncSidebarHeight() -- reads the WRAP, not the canvas, so the
-  // zoom feature scaling the canvas up never balloons the sidebar's matched height.
-  const canvas = document.getElementById('mapCanvasWrapSub');
+  const shell = document.getElementById('mapShellSub');
   const sidebar = document.getElementById('mapSidebarSub');
-  if(!canvas || !sidebar) return;
-  const h = canvas.getBoundingClientRect().height;
-  if(h > 0) sidebar.style.maxHeight = h + 'px';
+  if(!shell || !sidebar) return;
+  const top = shell.getBoundingClientRect().top + window.scrollY;
+  const avail = Math.max(320, window.innerHeight - top - mapBottomMargin());
+  shell.style.height = avail + 'px';
+  sidebar.style.maxHeight = avail + 'px';
+  if(typeof window.mapRefitSub === 'function') window.mapRefitSub();
 }
 
 let mapResizeListenerAddedSub = false;
