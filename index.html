@@ -1332,7 +1332,7 @@
         <option value="a">Rank by: Assists</option>
         <option value="flags">Rank by: Average flags (S+A+B)</option>
         <option value="d">Rank by: Fewest deaths</option>
-        <option value="reds">Rank by: Fewest KPI reds</option>
+        <option value="reds">Rank by: Fewest reds</option>
       </select>
     </div>
     <div id="valePartyWrap"></div>
@@ -3471,7 +3471,7 @@ const VALE_PARTY_SORTS = {
   a:    {key:'a', lowBetter:false, label:'Assists', unit:'assists'},
   flags:{key:'flags', lowBetter:false, label:'Average flags (S+A+B)', unit:'avg flags', dec:1}, // dec → shown via f1 (whole number)
   d:    {key:'d', lowBetter:true, label:'Deaths', unit:'deaths'},
-  reds: {key:'reds', lowBetter:true, label:'KPI reds', unit:'reds'},
+  reds: {key:'reds', lowBetter:true, label:'Reds', unit:'reds'},
 };
 function valePartyMatches(){
   return VALE_OF_CLASH_SNAPSHOT.matches.filter(m=>valeParties().some(pt=>pt.match===m.match));
@@ -3591,7 +3591,7 @@ function renderValeParties(){
         <div class="pty-tile"><div class="tv">${avgFlags(x)}</div><div class="tl">Avg flags S/A/B</div></div>
         <div class="pty-tile"><div class="tv">${x.green}/${x.graded}</div><div class="tl">All green</div><div class="td ${x.reds?'down':'flat'}">${x.reds} red${x.reds===1?'':'s'}</div></div>
       </div>
-      <div class="pty-mem pty-mem-head"><span>Member</span><span class="jb">Job</span><span class="num dim">K/A/D</span><span class="num dim">Flags</span><span class="num dim">Pts</span><span class="kp">KPI</span></div>
+      <div class="pty-mem pty-mem-head"><span>Member</span><span class="jb">Job</span><span class="num dim">K/A/D</span><span class="num dim">Flags</span><span class="num dim">Pts</span><span class="kp"></span></div>
       ${members}
     </div>`;
   }).join('');
