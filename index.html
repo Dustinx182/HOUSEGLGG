@@ -1112,13 +1112,13 @@
     <div class="crest">H</div>
     <div class="titles">
       <h1>HOUSE — Guild League</h1>
-      <div class="sub" id="headerSub">Stellar Clash</div>
+      <div class="sub" id="headerSub">Vigrid Avenge</div>
     </div>
   </div>
   <div class="event-tabs" id="eventToggle">
     <button data-event="Stellar Clash">Stellar Clash</button>
-    <button data-event="Vale of Clash" class="active">Vale of Clash</button>
-    <button data-event="Vigrid Avenge">Vigrid Avenge</button>
+    <button data-event="Vale of Clash">Vale of Clash</button>
+    <button data-event="Vigrid Avenge" class="active">Vigrid Avenge</button>
   </div>
   <div class="header-right">
     <div class="record-pill" id="recordPill">–</div>
@@ -1480,7 +1480,7 @@ const EVENTS = {
   'Vale of Clash': VALE_OF_CLASH_SNAPSHOT,
   'Vigrid Avenge': VIGRID_AVENGE_SNAPSHOT
 };
-let currentEvent = 'Vale of Clash';
+let currentEvent = 'Vigrid Avenge';   // the page opens on Vigrid Avenge
 function hasEventData(){ return DASH && DASH.matches && DASH.matches.length > 0; }
 
 // ---------- theme (dark default / light alternative) ----------
