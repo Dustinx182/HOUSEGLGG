@@ -2234,6 +2234,11 @@ function renderMetricChips(ev){
     };
     const tag = tagFor(c.vsMedian, c.baseVal, 'HOUSE median', 'mtag')
               + tagFor(c.vsMatch, c.matchVal_, 'match median', 'mtag-match');
+    if(c.noTarget){
+      // graded on the medians only — show both medians either way so a red chip explains itself
+      const med = (v,label,cls) => (v===null || v===undefined) ? '' : `<div class="${cls}">${label} ${fmt(v)}</div>`;
+      return `<div class="metric ${c.passFinal?'pass':'fail'}" title="No target for this job here (the winning side fielded none), so this is graded against the HOUSE median and match median"><div class="mv"${tierTitle}>${shown}</div><div class="mt">${labelText} · no target</div>${med(c.baseVal,'HOUSE median','mtag')}${med(c.matchVal_,'match median','mtag-match')}</div>`;
+    }
     return `<div class="metric ${c.passFinal?'pass':'fail'}"><div class="mv"${tierTitle}>${shown}</div><div class="mt">${labelText} /${c.target}</div>${tag}</div>`;
   }).join('');
 }
@@ -4571,8 +4576,19 @@ function vigridEvalPlayer(p){
   // the league target no longer means automatic red if the player still beats or ties both the
   // HOUSE median and this match's median. Either tier being unavailable makes that path unusable,
   // never a free pass.
+  // No target (the winning side fielded nobody in this job on this battlefield in the window):
+  // grade on the other two tiers instead — green only if the player beats or ties every median
+  // that exists (HOUSE median and/or this match's median). Still ungraded if neither exists, and
+  // never for the info-only Horn chip or for Kills on support jobs (not scored by design).
   checks.forEach(c=>{
-    if(c.pass===null){ c.passFinal=null; return; }
+    if(c.pass===null){
+      const gradable = c.label!=='Horn / Mon' && !(c.label==='Kills' && !killsApplicable(p.job));
+      const tiers = [c.vsMedian, c.vsMatch].filter(x=>x!==null && x!==undefined);
+      if(!gradable || tiers.length===0){ c.passFinal=null; return; }
+      c.noTarget = true;
+      c.passFinal = tiers.every(x=>x==='better' || x==='at');
+      return;
+    }
     if(c.pass===true){ c.passFinal=true; return; }
     const clearsHouse = c.vsMedian==='better' || c.vsMedian==='at';
     const clearsMatch = c.vsMatch==='better' || c.vsMatch==='at';
