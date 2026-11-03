@@ -1422,6 +1422,7 @@
             <option value="name">By Name</option>
             <option value="kills">By Kills</option>
             <option value="assists">By Assists</option>
+            <option value="deaths">By Deaths</option>
             <option value="flags">By Flags</option>
           </select>
           <select id="valeSortOrderFilter">
@@ -1560,6 +1561,7 @@
             <option value="name">By Name</option>
             <option value="kills">By Kills</option>
             <option value="assists">By Assists</option>
+            <option value="deaths">By Deaths</option>
             <option value="flags">By Guild Points</option>
             <option value="horn">By Horn Time</option>
           </select>
@@ -4155,7 +4157,7 @@ function populateValeFilters(){
   document.getElementById('valeJobFilter').innerHTML = '<option value="all">All jobs</option>' +
     jobs.map(j=>`<option value="${j}">${j}</option>`).join('');
 }
-const VALE_SORT_METRIC_KEY = {reds:'fails', greens:'green', kills:'k', assists:'a', flags:'obj'};
+const VALE_SORT_METRIC_KEY = {reds:'fails', greens:'green', kills:'k', assists:'a', deaths:'d', flags:'obj'};
 function valeBuildSortComparator(sortBy, sortOrder, metricsFn){
   const flip = sortOrder === 'asc' ? -1 : 1;
   return (a,b)=>{
@@ -4188,7 +4190,7 @@ function renderValePlayerList(){
 
   if(matchVal !== 'all'){
     evaluated.sort(valeBuildSortComparator(sortBy, sortOrder, e=>({
-      fails: e.ev.fails, green: e.ev.applicable - e.ev.fails, name: e.p.name, k: e.p.k, a: e.p.a, obj: valeCtfTotal(e.p)
+      fails: e.ev.fails, green: e.ev.applicable - e.ev.fails, name: e.p.name, k: e.p.k, a: e.p.a, d: e.p.d, obj: valeCtfTotal(e.p)
     })));
     document.getElementById('valeShownCount').textContent = evaluated.length;
     document.getElementById('valePassAllCount').textContent = evaluated.filter(e=>e.ev.fails===0 && e.ev.applicable>0).length;
@@ -4211,14 +4213,15 @@ function renderValePlayerList(){
     const avgFlags = entries.reduce((s,e)=>s+valeCtfTotal(e.p),0) / n;
     const avgRed = totalFails / n;
     const avgGreen = (totalApplicable - totalFails) / n;
-    return {name, entries, applicableEntries, passedCount, totalFails, latestJob, avgK, avgA, avgFlags, avgRed, avgGreen, n};
+    const avgD = entries.reduce((s,e)=>s+e.p.d,0) / n;
+    return {name, entries, applicableEntries, passedCount, totalFails, latestJob, avgK, avgA, avgD, avgFlags, avgRed, avgGreen, n};
   });
   groupList.sort(valeBuildSortComparator(sortBy, sortOrder, g=>({
-    fails: g.totalFails, green: g.avgGreen, name: g.name, k: g.avgK, a: g.avgA, obj: g.avgFlags
+    fails: g.totalFails, green: g.avgGreen, name: g.name, k: g.avgK, a: g.avgA, d: g.avgD, obj: g.avgFlags
   })));
 
-  const statSortLabel = {kills:'Kills', assists:'Assists', flags:'Flags'}[sortBy];
-  const statSortValue = {kills:'avgK', assists:'avgA', flags:'avgFlags'}[sortBy];
+  const statSortLabel = {kills:'Kills', assists:'Assists', deaths:'Deaths', flags:'Flags'}[sortBy];
+  const statSortValue = {kills:'avgK', assists:'avgA', deaths:'avgD', flags:'avgFlags'}[sortBy];
 
   document.getElementById('valeShownCount').textContent = groupList.length + ' players';
   document.getElementById('valePassAllCount').textContent = groupList.filter(g=> g.applicableEntries.length>0 && g.passedCount===g.applicableEntries.length).length;
@@ -5307,7 +5310,7 @@ function populateVigridFilters(){
   document.getElementById('vigridJobFilter').innerHTML = '<option value="all">All jobs</option>' +
     jobs.map(j=>`<option value="${j}">${j}</option>`).join('');
 }
-const VIGRID_SORT_METRIC_KEY = {reds:'fails', greens:'green', kills:'k', assists:'a', flags:'obj', horn:'horn'};
+const VIGRID_SORT_METRIC_KEY = {reds:'fails', greens:'green', kills:'k', assists:'a', deaths:'d', flags:'obj', horn:'horn'};
 function vigridBuildSortComparator(sortBy, sortOrder, metricsFn){
   const flip = sortOrder === 'asc' ? -1 : 1;
   return (a,b)=>{
@@ -5340,7 +5343,7 @@ function renderVigridPlayerList(){
 
   if(matchVal !== 'all'){
     evaluated.sort(vigridBuildSortComparator(sortBy, sortOrder, e=>({
-      fails: e.ev.fails, green: e.ev.applicable - e.ev.fails, name: e.p.name, k: e.p.k, a: e.p.a, obj: vigridObj(e.p), horn: e.p.horn
+      fails: e.ev.fails, green: e.ev.applicable - e.ev.fails, name: e.p.name, k: e.p.k, a: e.p.a, d: e.p.d, obj: vigridObj(e.p), horn: e.p.horn
     })));
     document.getElementById('vigridShownCount').textContent = evaluated.length;
     document.getElementById('vigridPassAllCount').textContent = evaluated.filter(e=>e.ev.fails===0 && e.ev.applicable>0).length;
@@ -5362,16 +5365,17 @@ function renderVigridPlayerList(){
     const avgA = entries.reduce((s,e)=>s+e.p.a,0) / n;
     const avgFlags = entries.reduce((s,e)=>s+vigridObj(e.p),0) / n;
     const avgHorn = entries.reduce((s,e)=>s+e.p.horn,0) / n;
+    const avgD = entries.reduce((s,e)=>s+e.p.d,0) / n;
     const avgRed = totalFails / n;
     const avgGreen = (totalApplicable - totalFails) / n;
-    return {name, entries, applicableEntries, passedCount, totalFails, latestJob, avgK, avgA, avgFlags, avgHorn, avgRed, avgGreen, n};
+    return {name, entries, applicableEntries, passedCount, totalFails, latestJob, avgK, avgA, avgD, avgFlags, avgHorn, avgRed, avgGreen, n};
   });
   groupList.sort(vigridBuildSortComparator(sortBy, sortOrder, g=>({
-    fails: g.totalFails, green: g.avgGreen, name: g.name, k: g.avgK, a: g.avgA, obj: g.avgFlags, horn: g.avgHorn
+    fails: g.totalFails, green: g.avgGreen, name: g.name, k: g.avgK, a: g.avgA, d: g.avgD, obj: g.avgFlags, horn: g.avgHorn
   })));
 
-  const statSortLabel = {kills:'Kills', assists:'Assists', flags:'Points', horn:'Horn s'}[sortBy];
-  const statSortValue = {kills:'avgK', assists:'avgA', flags:'avgFlags', horn:'avgHorn'}[sortBy];
+  const statSortLabel = {kills:'Kills', assists:'Assists', deaths:'Deaths', flags:'Points', horn:'Horn s'}[sortBy];
+  const statSortValue = {kills:'avgK', assists:'avgA', deaths:'avgD', flags:'avgFlags', horn:'avgHorn'}[sortBy];
 
   document.getElementById('vigridShownCount').textContent = groupList.length + ' players';
   document.getElementById('vigridPassAllCount').textContent = groupList.filter(g=> g.applicableEntries.length>0 && g.passedCount===g.applicableEntries.length).length;
