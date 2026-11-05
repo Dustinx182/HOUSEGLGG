@@ -5634,11 +5634,7 @@ function vgBuildWorkbook(X){
     const v = mRows.slice(1).reduce((s,row)=>s + (typeof row[c]==='number' ? row[c] : row[c].v), 0);
     tot.push(num(v, `SUM(${col(c)}2:${col(c)}${last})`));
   }
-  mRows.push(tot, [], ['Notes'],
-    ['Guild pts = Total Guild Points on the Vigrid Field (Main) scoreboard header. Ruinscape (Sub) shows Guild Merits.'],
-    ['Main / Sub columns are summed from the HOUSE Rows and Opponent Rows tabs, so they update if a row there is edited.'],
-    ...M.flatMap(m=>(m.notes||[]).map(n=>[`M${m.match}: ${n}`])),
-    [`Exported from the HOUSE dashboard on ${new Date().toISOString().slice(0,10)}.`]);
+  mRows.push(tot);
 
   // Player Totals: one row per scoreboard name, sorted by total points
   const R = "'HOUSE Rows'", by = {};
@@ -5670,8 +5666,6 @@ function vgBuildWorkbook(X){
     pRows.push(row);
   });
   const pCount = pRows.length - 1;
-  pRows.push([], ['Names are as shown on each scoreboard; a player who used another name or account shows on separate rows (e.g. NYERK playing for Depresso).'],
-    ['Sorted by total points. Use the header filters to sort by any column.']);
 
   // Parties
   const TH = ['Match','Battlefield','Party','Group','Player','In for (sheet name)','Job','Kills','Assists','Deaths','Horn (s)','Monsters','Points'];
