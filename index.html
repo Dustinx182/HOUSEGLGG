@@ -2706,7 +2706,8 @@ function duoData(bfSel, ex){
     for(let i=0;i<evs.length;i++) for(let j=i+1;j<evs.length;j++){
       const [a,b] = [evs[i], evs[j]].sort((x,y)=>x.p.name.localeCompare(y.p.name));
       const k = a.p.name + '\u0001' + b.p.name;
-      const r = pairs[k] = pairs[k] || {a:a.p.name, b:b.p.name, n:0, app:0, fails:0, pts:0, wins:0, parties:{}, ms:[]};
+      const r = pairs[k] = pairs[k] || {a:a.p.name, b:b.p.name, n:0, app:0, fails:0, pts:0, wins:0, parties:{}, ms:[], ja:{}, jb:{}};
+      r.ja[a.p.job] = (r.ja[a.p.job]||0) + 1; r.jb[b.p.job] = (r.jb[b.p.job]||0) + 1;
       r.n++; r.app += a.ev.applicable + b.ev.applicable; r.fails += a.ev.fails + b.ev.fails;
       r.pts += sc(a.p) + sc(b.p); if(a.p.result==='Win') r.wins++;
       r.parties[pt.party] = (r.parties[pt.party]||0) + 1; r.ms.push(`M${pt.match} ${pt.bf}`);
@@ -2714,7 +2715,7 @@ function duoData(bfSel, ex){
   });
   return Object.values(pairs).map(r=>({...r, rate: r.app ? (r.app-r.fails)/r.app : 0, avg: r.pts/r.n}));
 }
-const DUO = {bf:'All', min:2, sort:'rate', q:'', ex:new Set()};
+const DUO = {bf:'All', min:2, sort:'rate', q:'', ex:new Set(), view:'pairs'};
 const DUO_SUPPORT = ['Priest','Gypsy/Bard','Bard/Gypsy','Biochemist'];
 function openDuos(){ DUO.q=''; DUO.bf = XEV[currentEvent].bf(); xmOpen(`<div class="xm-title">Best duos · ${currentEvent}</div><div id="duoBody"></div>`, false); renderDuos(); }
 function renderDuos(){
@@ -2727,19 +2728,38 @@ function renderDuos(){
   const sup = jobs.filter(j=>DUO_SUPPORT.includes(j)), supOn = sup.length && sup.every(j=>DUO.ex.has(j));
   const exBox = `<div class="duo-ex"><span class="lbl">Exclude jobs:</span>${jobs.map(j=>`<label class="duo-j${DUO.ex.has(j)?' off':''}"><input type="checkbox" data-duo-ex="${xEsc(j)}"${DUO.ex.has(j)?' checked':''}>${jobBadgeHtml(j)}</label>`).join('')}
     <button type="button" class="att-btn" data-duo-sup>${supOn ? 'Show supports again' : 'Hide supports (Priest, Bard, Biochemist)'}</button>${DUO.ex.size ? `<button type="button" class="att-btn" data-duo-clear>Clear</button>` : ''}</div>`;
-  if(DUO.q) rows = rows.filter(r=>(r.a+' '+r.b).toLowerCase().includes(DUO.q));
+  if(DUO.q && DUO.view==='pairs') rows = rows.filter(r=>(r.a+' '+r.b).toLowerCase().includes(DUO.q));
   rows.sort(DUO.sort==='rate' ? (x,y)=>(y.rate-x.rate)||(y.n-x.n)||(y.avg-x.avg) : DUO.sort==='pts' ? (x,y)=>(y.avg-x.avg)||(y.rate-x.rate) : (x,y)=>(y.n-x.n)||(y.rate-x.rate));
   const seg = (attr, items, cur) => `<div class="xm-seg">${items.map(([v,l])=>`<button type="button" ${attr}="${v}" class="${String(cur)===String(v)?'on':''}">${l}</button>`).join('')}</div>`;
-  const top = rows.slice(0, 60);
   const name = n => `<span data-player="${encodeURIComponent(n)}">${xEsc(n)}</span>`;
-  const body = top.map((r,i)=>`<tr><td>${i+1}</td><td>${name(r.a)} + ${name(r.b)}<small>Party ${Object.entries(r.parties).sort((a,b)=>b[1]-a[1]).map(([p,c])=>`${xEsc(p)}${c>1?` ×${c}`:''}`).join(', ')}</small></td><td>${r.n}<small title="${xEsc(r.ms.join(', '))}">${r.wins}W ${r.n-r.wins}L</small></td><td class="${r.rate>=0.6?'pass':(r.rate<0.4?'fail':'')}">${Math.round(r.rate*100)}%</td><td>${xFmt(r.avg)}</td></tr>`).join('');
+  const jobsOf = o => Object.entries(o).sort((a,b)=>b[1]-a[1]).map(([j])=>j).join(' / ');
+  const pct = r => `<td class="${r.rate>=0.6?'pass':(r.rate<0.4?'fail':'')}">${Math.round(r.rate*100)}%</td>`;
+  let body, head, top = rows.slice(0, 60), note = '';
+  if(DUO.view==='each'){
+    // one row per player: their best partner under the current filters (excluded jobs never count)
+    const best = {};
+    rows.forEach(r=>{ [[r.a, r.b, r.ja, r.jb], [r.b, r.a, r.jb, r.ja]].forEach(([me, mate, jMe, jMate])=>{ (best[me] = best[me] || []).push({r, mate, jMe, jMate}); }); });
+    let people = Object.keys(best).sort((a,b)=>a.toLowerCase().localeCompare(b.toLowerCase()));
+    if(DUO.q) people = people.filter(n=>n.toLowerCase().includes(DUO.q));
+    head = `<th>Player</th><th>Best partner</th><th>Together</th><th>Green rate</th><th>Avg combined ${xEsc(word)}</th>`;
+    body = people.map(me=>{
+      const [b1, b2] = best[me];   // rows already sorted, so the first is the best
+      const next = b2 ? `<small>next: ${xEsc(b2.mate)} (${xEsc(jobsOf(b2.jMate))}) ${DUO.sort==='pts' ? xFmt(b2.r.avg) : Math.round(b2.r.rate*100)+'%'}</small>` : '';
+      return `<tr><td>${name(me)}<small>${xEsc(jobsOf(b1.jMe))}</small></td><td>${name(b1.mate)}<small>${xEsc(jobsOf(b1.jMate))}</small>${next}</td><td>${b1.r.n}<small>${b1.r.wins}W ${b1.r.n-b1.r.wins}L</small></td>${pct(b1.r)}<td>${xFmt(b1.r.avg)}</td></tr>`;
+    }).join('');
+  } else {
+  head = `<th>#</th><th>Duo</th><th>Together</th><th>Green rate</th><th>Avg combined ${xEsc(word)}</th>`;
+  note = rows.length > top.length ? `<div class="xm-sub" style="margin-top:6px;">Showing the top ${top.length} of ${rows.length} pairs. Search a name to see all of theirs.</div>` : '';
+  body = top.map((r,i)=>`<tr><td>${i+1}</td><td>${name(r.a)} + ${name(r.b)}<small>Party ${Object.entries(r.parties).sort((a,b)=>b[1]-a[1]).map(([p,c])=>`${xEsc(p)}${c>1?` ×${c}`:''}`).join(', ')}</small></td><td>${r.n}<small title="${xEsc(r.ms.join(', '))}">${r.wins}W ${r.n-r.wins}L</small></td><td class="${r.rate>=0.6?'pass':(r.rate<0.4?'fail':'')}">${Math.round(r.rate*100)}%</td><td>${xFmt(r.avg)}</td></tr>`).join('');
+  }
   document.getElementById('duoBody').innerHTML = `
     <div class="xm-sub">Pairs who were in the same party. <b>Green rate</b> = share of both players' stats that came out green in the matches they played together. Only pairs with at least ${DUO.min} matches together are shown.${DUO.ex.size ? ` A player is left out of a match when they played an excluded job in it.` : ''}</div>
+    <div class="xm-tools" style="margin-bottom:8px;">${seg('data-duo-view', [['pairs','Top pairs'],['each','Best partner for each player']], DUO.view)}</div>
     <div class="xm-tools">${seg('data-duo-bf', [['All','Main + Sub'],['Main','Main'],['Sub','Sub']], DUO.bf)}<span style="display:inline-flex; align-items:center; gap:6px;"><span style="font-size:11px; font-weight:800; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.03em;">Matches together</span>${seg('data-duo-min', [[2,'2+'],[3,'3+'],[5,'5+']], DUO.min)}</span>${seg('data-duo-sort', [['rate','Green rate'],['pts','Points'],['n','Most together']], DUO.sort)}
       <input type="search" data-duo-q placeholder="Find a player…" value="${xEsc(DUO.q)}" style="font:inherit; font-size:12.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:var(--panel-2); color:var(--text); min-height:36px; flex:1; min-width:140px;"></div>
     ${exBox}
-    <div class="att-wrap"><table class="pf-cmp" style="margin-top:0;"><thead><tr><th>#</th><th>Duo</th><th>Together</th><th>Green rate</th><th>Avg combined ${xEsc(word)}</th></tr></thead><tbody>${body || `<tr><td colspan="5" class="none">No pairs match.</td></tr>`}</tbody></table></div>
-    ${rows.length > top.length ? `<div class="xm-sub" style="margin-top:6px;">Showing the top ${top.length} of ${rows.length} pairs. Search a name to see all of theirs.</div>` : ''}`;
+    <div class="att-wrap"><table class="pf-cmp" style="margin-top:0;"><thead><tr>${head}</tr></thead><tbody>${body || `<tr><td colspan="5" class="none">No pairs match.</td></tr>`}</tbody></table></div>
+    ${note}`;
 }
 function bestPartners(name){
   const rows = duoData('All').filter(r=>r.n>=2 && (r.a===name || r.b===name)).sort((x,y)=>(y.rate-x.rate)||(y.n-x.n)).slice(0,3);
@@ -2795,13 +2815,14 @@ function renderJobMeta(){
 }
 
 document.addEventListener('click', e=>{
-  const b = e.target.closest('[data-duo-bf],[data-duo-min],[data-duo-sort],[data-jm-bf],[data-duos],[data-jobmeta]');
+  const b = e.target.closest('[data-duo-bf],[data-duo-min],[data-duo-sort],[data-duo-view],[data-jm-bf],[data-duos],[data-jobmeta]');
   if(!b) return;
   if(b.dataset.duos!==undefined){ openDuos(); return; }
   if(b.dataset.jobmeta!==undefined){ openJobMeta(); return; }
   if(b.dataset.duoBf){ DUO.bf = b.dataset.duoBf; renderDuos(); return; }
   if(b.dataset.duoMin){ DUO.min = +b.dataset.duoMin; renderDuos(); return; }
   if(b.dataset.duoSort){ DUO.sort = b.dataset.duoSort; renderDuos(); return; }
+  if(b.dataset.duoView){ DUO.view = b.dataset.duoView; renderDuos(); return; }
   if(b.dataset.jmBf){ JM.bf = b.dataset.jmBf; JM.open = null; renderJobMeta(); }
 });
 document.addEventListener('click', e=>{
