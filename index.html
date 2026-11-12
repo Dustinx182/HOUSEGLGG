@@ -504,6 +504,37 @@
   }
   .kpi-summary b{color:var(--gold); font-size:14px;}
 
+
+  /* ---------- player stats: list view (one row per match, every criterion visible) ---------- */
+  .stat-list{background:var(--panel); border:1px solid var(--border); border-radius:11px; overflow:hidden; margin-bottom:8px;}
+  .player-group .stat-list{margin-left:6px;}
+  .sl-row{display:grid; grid-template-columns:minmax(150px,1.35fr) repeat(var(--n),minmax(0,1fr)); align-items:stretch; border-top:1px solid var(--border);}
+  .sl-row:first-child{border-top:none;}
+  .sl-row.sl-head{background:var(--panel-2); font-size:10px; font-weight:800; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.03em;}
+  .sl-row.sl-head > div{padding:6px 8px; text-align:center;}
+  .sl-row.sl-head > div:first-child{text-align:left;}
+  .sl-who{padding:7px 10px; display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; min-width:0;}
+  .sl-who .sl-name{font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%;}
+  .sl-who .sl-m{font-size:10px; font-weight:800; color:var(--text-dim);}
+  .sl-who .job-badge{font-size:10px; padding:2px 6px;}
+  .sl-who .party-tag, .sl-who .title-badge, .sl-who .fail-badge{font-size:9.5px;}
+  .sl-c{padding:6px 4px; text-align:center; border-left:1px solid var(--border);}
+  .sl-c .v{font-size:15px; font-weight:800; line-height:1.15;}
+  .sl-c.pass{background:rgba(63,184,127,0.07);} .sl-c.pass .v{color:var(--pass);}
+  .sl-c.fail{background:rgba(224,92,92,0.08);} .sl-c.fail .v{color:var(--fail);}
+  .sl-c.na .v{color:var(--text-dim); font-weight:700; font-size:13px;}
+  .sl-k{display:flex; justify-content:center; flex-wrap:wrap; gap:2px 6px; margin-top:2px; font-size:10px; font-weight:700; white-space:nowrap;}
+  .sl-k .ok{color:var(--pass);} .sl-k .no{color:var(--text-dim); opacity:0.75;} .sl-k .nt{color:var(--text-dim); font-style:italic; font-weight:600;}
+  .sl-legend{font-size:10.5px; color:var(--text-dim); margin:0 0 8px; line-height:1.5;}
+  .sl-legend b{color:var(--text);}
+  @media (min-width:860px){ .sl-who .sl-name{font-size:14px;} .sl-c .v{font-size:16px;} .sl-k{font-size:10.5px;} }
+  @media (max-width:640px){
+    .sl-row{grid-template-columns:repeat(var(--n),minmax(0,1fr));}
+    .sl-who{grid-column:1 / -1; border-bottom:1px dashed var(--border);}
+    .sl-row.sl-head > div:first-child{display:none;}
+    .sl-c:nth-child(2){border-left:none;}
+    .sl-k{flex-direction:column; gap:0; font-size:9.5px;}
+  }
   /* player card */
   .player-card{
     background:var(--panel); border:1px solid var(--border); border-radius:11px;
@@ -2221,6 +2252,42 @@ function sortByKey(list, sortBy, sortOrder, metricsFn){
   list.sort(buildSortComparator(sortBy, sortOrder, metricsFn));
 }
 
+// ---------- player stats list view (shared by all three events) ----------
+// One row per match: the stat, then every criterion it's judged on — target (≥ / ≤), HOUSE median (H)
+// and match median (M) — each marked ✓/✗, so a red cell always shows why it's red.
+// Rule (unchanged): green if the target is met; if not, green only when it beats or ties BOTH medians.
+function statListHead(ev, firstLabel){
+  const cols = ev.checks.map(c=>`<div>${c.valDisplay ? (c.labelFull || c.label + ' (S/A/B)') : (c.labelFull || c.label)}</div>`).join('');
+  return `<div class="sl-row sl-head" style="--n:${ev.checks.length}"><div>${firstLabel}</div>${cols}</div>`;
+}
+function statListLegend(){
+  return `<div class="sl-legend"><b>Green</b> = meets the target, or if not, at/better than <b>both</b> the HOUSE median (H) and the match median (M). ✓ = criterion met.</div>`;
+}
+function statListCells(ev){
+  const fmt = v => Math.round(v*10)/10;
+  return ev.checks.map(c=>{
+    const shown = c.valDisplay ?? c.val;
+    if(c.passFinal===null) return `<div class="sl-c na"><div class="v">${shown ?? '—'}</div></div>`;
+    const op = c.ceil ? '≤' : '≥';
+    const mark = ok => ok ? '✓' : '✗';
+    const crit = (label, val, ok) => (val===null || val===undefined) ? '' : `<span class="${ok?'ok':'no'}">${label}${fmt(val)} ${mark(ok)}</span>`;
+    const clears = d => d==='better' || d==='at';
+    const tgt = c.noTarget ? `<span class="nt">no target</span>` : crit(op, c.target, c.pass===true);
+    const k = tgt + crit('H ', c.baseVal, clears(c.vsMedian)) + crit('M ', c.matchVal_, clears(c.vsMatch));
+    return `<div class="sl-c ${c.passFinal?'pass':'fail'}"><div class="v">${shown}</div><div class="sl-k">${k}</div></div>`;
+  }).join('');
+}
+function statListRow(p, ev, showMatchTag, extraHtml){
+  const badge = ev.applicable===0 ? '' :
+    ev.fails===0 ? `<span class="fail-badge ok">ALL GREEN</span>` : `<span class="fail-badge bad">${ev.fails} RED</span>`;
+  const who = showMatchTag
+    ? `<span class="sl-m">M${p.match}</span><span class="sl-name">vs ${p.opp}</span>`
+    : `<span class="sl-name">${p.name}</span>`;
+  return `<div class="sl-row" style="--n:${ev.checks.length}"><div class="sl-who">${who}${jobBadgeHtml(p.job)}${extraHtml||''}${badge}</div>${statListCells(ev)}</div>`;
+}
+function statListWrap(rowsHtml, ev, firstLabel){
+  return `<div class="stat-list">${statListHead(ev, firstLabel)}${rowsHtml}</div>`;
+}
 function renderMetricChips(ev){
   return ev.checks.map(c=>{
     // valDisplay lets a check show something other than its raw scored value — right now only
@@ -2254,15 +2321,7 @@ function renderSingleCard(p, ev, showMatchTag){
     ev.fails===0 ? `<span class="fail-badge ok">ALL GREEN</span>` : `<span class="fail-badge bad">${ev.fails} RED</span>`;
   // inside a player group, the name is already shown once in the group header — repeating it
   // on every nested card is noise, so the opponent becomes the primary label instead
-  const primaryLabel = showMatchTag ? `vs ${p.opp}` : p.name;
-  return `<div class="player-card">
-    <div class="pc-top">
-      <span class="pc-name">${primaryLabel}</span>
-      ${jobBadgeHtml(p.job)}
-      ${badge}
-    </div>
-    <div class="metric-row">${renderMetricChips(ev)}</div>
-  </div>`;
+  return statListRow(p, ev, showMatchTag, '');
 }
 
 function renderPlayerList(){
@@ -2298,7 +2357,7 @@ function renderPlayerList(){
 
     document.getElementById('shownCount').textContent = evaluated.length;
     document.getElementById('passAllCount').textContent = evaluated.filter(e=>e.ev.fails===0 && e.ev.applicable>0).length;
-    document.getElementById('playerList').innerHTML = evaluated.map(({p,ev})=> renderSingleCard(p, ev, false)).join('');
+    document.getElementById('playerList').innerHTML = statListLegend() + statListWrap(evaluated.map(({p,ev})=> renderSingleCard(p, ev, false)).join(''), evaluated[0].ev, 'Player');
     return;
   }
 
@@ -2361,7 +2420,7 @@ function renderPlayerList(){
   document.getElementById('shownCount').textContent = groupList.length + ' players';
   document.getElementById('passAllCount').textContent = groupList.filter(g=> g.applicableEntries.length>0 && g.passedCount===g.applicableEntries.length).length;
 
-  document.getElementById('playerList').innerHTML = groupList.map(g=>{
+  document.getElementById('playerList').innerHTML = statListLegend() + groupList.map(g=>{
     const n = g.entries.length;
     const rateClass = g.applicableEntries.length===0 ? '' : (g.passedCount===g.applicableEntries.length ? 'good' : (g.passedCount===0 ? 'bad' : ''));
     const rateLabel = g.applicableEntries.length===0 ? '' :
@@ -2371,7 +2430,7 @@ function renderPlayerList(){
       : (statSortLabel ? `<span class="pg-rate">${Math.round(g[statSortValue]*10)/10} avg ${statSortLabel}</span>` : '');
     const smallSampleNote = (STAT_SORT_KEYS.includes(sortBy) && g.n < MIN_STATS_MATCHES)
       ? `<span class="pg-count" style="color:var(--gold-dim);">only ${g.n} match${g.n===1?'':'es'} — not ranked at top</span>` : '';
-    const cardsHtml = [...g.entries].reverse().map(({p,ev})=> renderSingleCard(p, ev, true)).join('');   // most recent match on top
+    const cardsHtml = statListWrap([...g.entries].reverse().map(({p,ev})=> renderSingleCard(p, ev, true)).join(''), g.entries[0].ev, 'Match');   // most recent match on top
     return `<div class="player-group">
       <div class="player-group-head">
         <span class="pg-name">${g.name}</span>
@@ -4138,16 +4197,7 @@ function valeRenderSingleCard(p, ev, showMatchTag){
   const partyHtml = pty
     ? `<span class="party-tag${pty.leader?' ldr':''}" title="${valeEsc(pty.group)}${pty.leader?' · party leader':''}">${pty.leader?'★ ':''}Party ${valeEsc(pty.party)}</span>`
     : '';
-  return `<div class="player-card">
-    <div class="pc-top">
-      <span class="pc-name">${primaryLabel}</span>
-      ${jobBadgeHtml(p.job)}
-      ${partyHtml}
-      ${titleHtml}
-      ${badge}
-    </div>
-    <div class="metric-row">${renderMetricChips(ev)}</div>
-  </div>`;
+  return statListRow(p, ev, showMatchTag, partyHtml + titleHtml);
 }
 function populateValeFilters(){
   const matchSel = document.getElementById('valeMatchFilter');
@@ -4194,7 +4244,7 @@ function renderValePlayerList(){
     })));
     document.getElementById('valeShownCount').textContent = evaluated.length;
     document.getElementById('valePassAllCount').textContent = evaluated.filter(e=>e.ev.fails===0 && e.ev.applicable>0).length;
-    document.getElementById('valePlayerList').innerHTML = evaluated.map(({p,ev})=> valeRenderSingleCard(p, ev, false)).join('');
+    document.getElementById('valePlayerList').innerHTML = statListLegend() + statListWrap(evaluated.map(({p,ev})=> valeRenderSingleCard(p, ev, false)).join(''), evaluated[0].ev, 'Player');
     return;
   }
 
@@ -4225,14 +4275,14 @@ function renderValePlayerList(){
 
   document.getElementById('valeShownCount').textContent = groupList.length + ' players';
   document.getElementById('valePassAllCount').textContent = groupList.filter(g=> g.applicableEntries.length>0 && g.passedCount===g.applicableEntries.length).length;
-  document.getElementById('valePlayerList').innerHTML = groupList.map(g=>{
+  document.getElementById('valePlayerList').innerHTML = statListLegend() + groupList.map(g=>{
     const n = g.entries.length;
     const rateClass = g.applicableEntries.length===0 ? '' : (g.passedCount===g.applicableEntries.length ? 'good' : (g.passedCount===0 ? 'bad' : ''));
     const rateLabel = g.applicableEntries.length===0 ? '' : `<span class="pg-rate ${rateClass}">${g.passedCount}/${g.applicableEntries.length} passed</span>`;
     const avgLabel = g.applicableEntries.length===0 ? '' : (sortBy === 'reds' || sortBy === 'greens')
       ? `<span class="pg-rate bad">${Math.round(g.avgRed*10)/10} avg Red</span><span class="pg-rate good">${Math.round(g.avgGreen*10)/10} avg Green</span>`
       : (statSortLabel ? `<span class="pg-rate">${Math.round(g[statSortValue]*10)/10} avg ${statSortLabel}</span>` : '');
-    const cardsHtml = [...g.entries].reverse().map(({p,ev})=> valeRenderSingleCard(p, ev, true)).join('');   // most recent match on top
+    const cardsHtml = statListWrap([...g.entries].reverse().map(({p,ev})=> valeRenderSingleCard(p, ev, true)).join(''), g.entries[0].ev, 'Match');   // most recent match on top
     return `<div class="player-group">
       <div class="player-group-head">
         <span class="pg-name">${g.name}</span>
@@ -5291,16 +5341,7 @@ function vigridRenderSingleCard(p, ev, showMatchTag){
   const partyHtml = pty
     ? `<span class="party-tag${pty.leader?' ldr':''}" title="${vigridEsc(pty.group)}${pty.leader?' · party leader':''}">${pty.leader?'★ ':''}Party ${vigridEsc(pty.party)}</span>`
     : '';
-  return `<div class="player-card">
-    <div class="pc-top">
-      <span class="pc-name">${primaryLabel}</span>
-      ${jobBadgeHtml(p.job)}
-      ${partyHtml}
-      ${titleHtml}
-      ${badge}
-    </div>
-    <div class="metric-row vg5">${renderMetricChips(ev)}</div>
-  </div>`;
+  return statListRow(p, ev, showMatchTag, partyHtml + titleHtml);
 }
 function populateVigridFilters(){
   const matchSel = document.getElementById('vigridMatchFilter');
@@ -5347,7 +5388,7 @@ function renderVigridPlayerList(){
     })));
     document.getElementById('vigridShownCount').textContent = evaluated.length;
     document.getElementById('vigridPassAllCount').textContent = evaluated.filter(e=>e.ev.fails===0 && e.ev.applicable>0).length;
-    document.getElementById('vigridPlayerList').innerHTML = evaluated.map(({p,ev})=> vigridRenderSingleCard(p, ev, false)).join('');
+    document.getElementById('vigridPlayerList').innerHTML = statListLegend() + statListWrap(evaluated.map(({p,ev})=> vigridRenderSingleCard(p, ev, false)).join(''), evaluated[0].ev, 'Player');
     return;
   }
 
@@ -5379,14 +5420,14 @@ function renderVigridPlayerList(){
 
   document.getElementById('vigridShownCount').textContent = groupList.length + ' players';
   document.getElementById('vigridPassAllCount').textContent = groupList.filter(g=> g.applicableEntries.length>0 && g.passedCount===g.applicableEntries.length).length;
-  document.getElementById('vigridPlayerList').innerHTML = groupList.map(g=>{
+  document.getElementById('vigridPlayerList').innerHTML = statListLegend() + groupList.map(g=>{
     const n = g.entries.length;
     const rateClass = g.applicableEntries.length===0 ? '' : (g.passedCount===g.applicableEntries.length ? 'good' : (g.passedCount===0 ? 'bad' : ''));
     const rateLabel = g.applicableEntries.length===0 ? '' : `<span class="pg-rate ${rateClass}">${g.passedCount}/${g.applicableEntries.length} passed</span>`;
     const avgLabel = g.applicableEntries.length===0 ? '' : (sortBy === 'reds' || sortBy === 'greens')
       ? `<span class="pg-rate bad">${Math.round(g.avgRed*10)/10} avg Red</span><span class="pg-rate good">${Math.round(g.avgGreen*10)/10} avg Green</span>`
       : (statSortLabel ? `<span class="pg-rate">${Math.round(g[statSortValue]*10)/10} avg ${statSortLabel}</span>` : '');
-    const cardsHtml = [...g.entries].reverse().map(({p,ev})=> vigridRenderSingleCard(p, ev, true)).join('');   // most recent match on top
+    const cardsHtml = statListWrap([...g.entries].reverse().map(({p,ev})=> vigridRenderSingleCard(p, ev, true)).join(''), g.entries[0].ev, 'Match');   // most recent match on top
     return `<div class="player-group">
       <div class="player-group-head">
         <span class="pg-name">${g.name}</span>
