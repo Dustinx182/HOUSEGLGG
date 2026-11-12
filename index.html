@@ -331,10 +331,10 @@
   .toggle-group-sub button.active{background:rgba(212,169,76,0.15); color:var(--gold); font-weight:700;}
 
   /* match pills */
-  .match-strip{display:flex; gap:8px; overflow-x:auto; padding:2px 2px 4px;}
+  .match-strip{display:flex; gap:8px; overflow-x:auto; padding:10px 2px 4px;}
   .match-card{
     flex:0 0 auto; min-width:108px; background:var(--panel); border:1px solid var(--border);
-    border-radius:10px; padding:9px 11px; position:relative; cursor:pointer;
+    border-radius:10px; padding:13px 11px 9px; position:relative; cursor:pointer;
     transition:border-color 0.15s, background 0.15s;
   }
   .match-card:active{transform:scale(0.97);}
@@ -1976,7 +1976,7 @@ function renderMatchStrip(){
       <div class="kd">Main <b>${mk}</b>/${md}</div>
       <div class="tap-hint">Tap to focus ↴</div>
     </div>`;
-  }).join('');
+  }).reverse().join('');   // newest on the left, oldest on the right
   // wired once — DASH.matches never changes after load, so the strip never re-renders
   document.querySelectorAll('#matchStrip .match-card').forEach(card=>{
     card.addEventListener('click', ()=> jumpToMatch(parseInt(card.dataset.match, 10)));
@@ -3503,7 +3503,7 @@ function renderValeMatchStrip(){
       <div class="kd">Sub <b>${sh.kills}</b>/${so.kills}</div>
       <div class="tap-hint">Tap to focus ↴</div>
     </div>`;
-  }).join('');
+  }).reverse().join('');   // newest on the left, oldest on the right
   document.querySelectorAll('#valeMatchStrip .match-card').forEach(card=>{
     card.addEventListener('click', ()=> valeJumpToMatch(parseInt(card.dataset.match, 10)));
   });
@@ -4637,7 +4637,7 @@ function renderVigridMatchStrip(){
       <div class="kd">Kills <b>${mh.kills}</b>/${mo.kills} · <b>${sh.kills}</b>/${so.kills}</div>
       <div class="tap-hint">Tap to focus ↴</div>
     </div>`;
-  }).join('');
+  }).reverse().join('');   // newest on the left, oldest on the right
   document.querySelectorAll('#vigridMatchStrip .match-card').forEach(card=>{
     card.addEventListener('click', ()=> vigridJumpToMatch(parseInt(card.dataset.match, 10)));
   });
