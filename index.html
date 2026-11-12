@@ -2371,7 +2371,7 @@ function renderPlayerList(){
       : (statSortLabel ? `<span class="pg-rate">${Math.round(g[statSortValue]*10)/10} avg ${statSortLabel}</span>` : '');
     const smallSampleNote = (STAT_SORT_KEYS.includes(sortBy) && g.n < MIN_STATS_MATCHES)
       ? `<span class="pg-count" style="color:var(--gold-dim);">only ${g.n} match${g.n===1?'':'es'} — not ranked at top</span>` : '';
-    const cardsHtml = g.entries.map(({p,ev})=> renderSingleCard(p, ev, true)).join('');
+    const cardsHtml = [...g.entries].reverse().map(({p,ev})=> renderSingleCard(p, ev, true)).join('');   // most recent match on top
     return `<div class="player-group">
       <div class="player-group-head">
         <span class="pg-name">${g.name}</span>
@@ -4232,7 +4232,7 @@ function renderValePlayerList(){
     const avgLabel = g.applicableEntries.length===0 ? '' : (sortBy === 'reds' || sortBy === 'greens')
       ? `<span class="pg-rate bad">${Math.round(g.avgRed*10)/10} avg Red</span><span class="pg-rate good">${Math.round(g.avgGreen*10)/10} avg Green</span>`
       : (statSortLabel ? `<span class="pg-rate">${Math.round(g[statSortValue]*10)/10} avg ${statSortLabel}</span>` : '');
-    const cardsHtml = g.entries.map(({p,ev})=> valeRenderSingleCard(p, ev, true)).join('');
+    const cardsHtml = [...g.entries].reverse().map(({p,ev})=> valeRenderSingleCard(p, ev, true)).join('');   // most recent match on top
     return `<div class="player-group">
       <div class="player-group-head">
         <span class="pg-name">${g.name}</span>
@@ -5386,7 +5386,7 @@ function renderVigridPlayerList(){
     const avgLabel = g.applicableEntries.length===0 ? '' : (sortBy === 'reds' || sortBy === 'greens')
       ? `<span class="pg-rate bad">${Math.round(g.avgRed*10)/10} avg Red</span><span class="pg-rate good">${Math.round(g.avgGreen*10)/10} avg Green</span>`
       : (statSortLabel ? `<span class="pg-rate">${Math.round(g[statSortValue]*10)/10} avg ${statSortLabel}</span>` : '');
-    const cardsHtml = g.entries.map(({p,ev})=> vigridRenderSingleCard(p, ev, true)).join('');
+    const cardsHtml = [...g.entries].reverse().map(({p,ev})=> vigridRenderSingleCard(p, ev, true)).join('');   // most recent match on top
     return `<div class="player-group">
       <div class="player-group-head">
         <span class="pg-name">${g.name}</span>
