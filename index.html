@@ -581,6 +581,17 @@
   .ck-verdict.ok{color:var(--pass);} .ck-verdict.no{color:var(--fail);}
   .att-btn{font:inherit; font-size:12px; font-weight:700; padding:5px 11px; border-radius:7px; border:1px solid var(--border); background:var(--panel-2); color:var(--text); cursor:pointer; min-height:30px;}
   .att-btn:hover{border-color:var(--gold);}
+  .jm-row{cursor:pointer;} .jm-row:hover td{background:var(--panel-2);} .jm-row.open td{background:var(--panel-2); border-bottom-color:transparent;}
+  .jm-car{font-size:11px; color:var(--text-dim); margin-left:4px;}
+  .jm-detail > td{background:var(--panel-2); padding:4px 10px 12px !important; text-align:left !important;}
+  .jm-d .pf-cmp{background:var(--panel); border-radius:8px; overflow:hidden;}
+  .jm-d .pf-cmp td, .jm-d .pf-cmp th{padding:5px 6px;}
+  .jm-sum td{font-weight:800; color:var(--text);} .jm-sum td b{color:var(--gold);}
+  .duo-ex{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:10px;}
+  .duo-ex .lbl{font-size:11px; font-weight:800; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.03em; margin-right:2px;}
+  .duo-j{display:inline-flex; align-items:center; gap:4px; padding:3px 6px 3px 4px; border:1px solid var(--border); border-radius:8px; cursor:pointer; background:var(--panel-2); min-height:30px;}
+  .duo-j input{margin:0; accent-color:var(--fail); width:15px; height:15px;}
+  .duo-j.off{border-color:var(--fail);} .duo-j.off .job-badge{opacity:0.45; text-decoration:line-through;}
   .att-wrap{overflow:auto; max-height:70vh; border:1px solid var(--border); border-radius:10px; margin-top:10px;}
   .att{border-collapse:separate; border-spacing:0; font-size:12px; width:100%;}
   .att th{position:sticky; top:0; z-index:2; background:var(--panel-2); font-size:10.5px; color:var(--text-dim); font-weight:800; padding:7px 6px; white-space:nowrap; border-bottom:1px solid var(--border);}
@@ -1400,7 +1411,7 @@
         <input type="search" id="searchBox" placeholder="Search player name…" style="width:100%; margin-bottom:10px;">
         <div class="kpi-summary">
           <span>Players shown: <b id="shownCount">0</b></span>
-          <button type="button" class="att-btn" data-attendance>📅 Attendance</button>
+          <span style="display:inline-flex; gap:6px; flex-wrap:wrap; justify-content:center;"><button type="button" class="att-btn" data-attendance>📅 Attendance</button> <button type="button" class="att-btn" data-jobmeta>⚔️ Job meta</button></span>
           <span>Passed all Stats: <b id="passAllCount">0</b></span>
         </div>
       </div>
@@ -1527,7 +1538,7 @@
         <input type="search" id="valeSearchBox" placeholder="Search player name…" style="width:100%; margin-bottom:10px;">
         <div class="kpi-summary">
           <span>Players shown: <b id="valeShownCount">0</b></span>
-          <button type="button" class="att-btn" data-attendance>📅 Attendance</button>
+          <span style="display:inline-flex; gap:6px; flex-wrap:wrap; justify-content:center;"><button type="button" class="att-btn" data-attendance>📅 Attendance</button> <button type="button" class="att-btn" data-duos>🤝 Best duos</button> <button type="button" class="att-btn" data-jobmeta>⚔️ Job meta</button></span>
           <span>Passed all Stats: <b id="valePassAllCount">0</b></span>
         </div>
       </div>
@@ -1668,7 +1679,7 @@
         <input type="search" id="vigridSearchBox" placeholder="Search player name…" style="width:100%; margin-bottom:10px;">
         <div class="kpi-summary">
           <span>Players shown: <b id="vigridShownCount">0</b></span>
-          <button type="button" class="att-btn" data-attendance>📅 Attendance</button>
+          <span style="display:inline-flex; gap:6px; flex-wrap:wrap; justify-content:center;"><button type="button" class="att-btn" data-attendance>📅 Attendance</button> <button type="button" class="att-btn" data-duos>🤝 Best duos</button> <button type="button" class="att-btn" data-jobmeta>⚔️ Job meta</button></span>
           <span>Passed all Stats: <b id="vigridPassAllCount">0</b></span>
         </div>
       </div>
@@ -2525,13 +2536,14 @@ function renderProfile(){
     <div class="xm-tools">${bfSeg}${cmpSel}</div>
     <div class="xm-sec">Summary${B ? ` · <span style="color:var(--gold)">${xEsc(PF.name)}</span> vs <span style="color:var(--support)">${xEsc(PF.cmp)}</span>` : ''}</div>
     <div class="pf-tiles">${tiles}</div>
-    <div class="pf-hist" style="margin-top:10px;">${jobs ? `Jobs on ${bfWord}: ${jobs}` : ''}${parties ? `<br>Parties: ${parties}` : ''}${sheet.length ? `<br>Name on party sheet: ${sheet.join(' · ')}` : ''}</div>
+    <div class="pf-hist" style="margin-top:10px;">${jobs ? `Jobs on ${bfWord}: ${jobs}` : ''}${parties ? `<br>Parties: ${parties}` : ''}${sheet.length ? `<br>Name on party sheet: ${sheet.join(' · ')}` : ''}${bestPartners(PF.name)}</div>
     <div class="xm-sec">Trend</div>
     <div class="xm-tools">${mSeg}</div>
     ${hasChart ? `<div class="pf-chart"><canvas id="pfCanvas"></canvas></div>
     <div class="pf-legend"><span><i style="background:var(--gold)"></i>${xEsc(PF.name)} (dot: green = passed, red = missed)</span>${B ? `<span><i style="background:var(--support)"></i>${xEsc(PF.cmp)}</span>` : `<span><i class="d"></i>HOUSE median (H)</span><span><i class="d" style="border-top-style:dotted; border-top-color:var(--gold)"></i>Target</span>`}</div>` : `<div class="xm-sub">The trend chart needs internet to load.</div>`}
     ${cmpTable}
     ${B ? `<div class="xm-sub" style="margin-top:8px;">${xEsc(PF.cmp)} is compared on every match they played, Main and Sub. Green/red for each of them is judged against their own job and battlefield. Raw numbers on Main and Sub aren't on the same scale (Main points run much higher), so across battlefields the green rate is the fairest comparison.</div>` : ''}
+    ${duelSection(rows)}
     <div class="xm-sec">${xEsc(PF.name)}: every match on ${bfWord}, newest first</div>${list}`;
 
   const existing = document.querySelector('#xmOverlay .xm-body');
@@ -2644,6 +2656,177 @@ document.addEventListener('input', e=>{
   }
 });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') xmClose(); });
+// ---------- opposite number (duels), best duos, job meta ----------
+const XSC = {
+  'Stellar Clash': {score: p=>p.score || 0, word: ()=>'Score'},
+  'Vale of Clash': {score: p=>p.perf || 0, word: ()=>'Perf'},
+  'Vigrid Avenge': {score: p=>p.pts || 0, word: bf=>bf==='Sub' ? 'Merits' : 'Points'},
+};
+const xOpps = () => XEV[currentEvent].snap().opponents || [];
+// Rank-matched pairing: HOUSE's best <job> on that battlefield faces their best <job>, our 2nd their 2nd, …
+// If they fielded fewer of that job, the extra HOUSE players face their last (weakest) one.
+function duelFor(p){
+  const X = XEV[currentEvent], sc = XSC[currentEvent].score;
+  const byScore = (a,b)=>(sc(b)-sc(a)) || (b.k-a.k) || (a.d-b.d);
+  const ours = X.snap().players.filter(q=>q.match===p.match && q.bf===p.bf && q.job===p.job && X.active(q)).sort(byScore);
+  const theirs = xOpps().filter(q=>q.match===p.match && q.bf===p.bf && q.job===p.job && X.active(q)).sort(byScore);
+  if(!theirs.length) return {opp:null};
+  const i = Math.max(0, ours.findIndex(q=>q.name===p.name));
+  const o = theirs[Math.min(i, theirs.length-1)];
+  const d = (sc(p)-sc(o)) || (p.k-o.k) || (o.d-p.d);
+  return {opp:o, won: d>0, tie: d===0, slot:i+1, ofOurs:ours.length, ofTheirs:theirs.length};
+}
+function duelSection(rows){
+  if(!rows.length) return '';
+  const sc = XSC[currentEvent].score, word = XSC[currentEvent].word;
+  const ds = [...rows].reverse().map(p=>({p, d:duelFor(p)}));
+  const fought = ds.filter(x=>x.d.opp);
+  const w = fought.filter(x=>x.d.won).length, l = fought.filter(x=>!x.d.won && !x.d.tie).length, t = fought.length - w - l;
+  const kad = q => `${q.k}/${q.a}/${q.d}`;
+  const body = ds.map(({p,d})=>{
+    if(!d.opp) return `<tr><td>M${p.match} vs ${xEsc(p.opp)}<small>${p.bf} · ${xEsc(p.job)}</small></td><td>${sc(p)}<small>${kad(p)}</small></td><td class="none" colspan="2">No ${xEsc(p.job)} on their side</td></tr>`;
+    const res = d.tie ? '<td class="none">Draw</td>' : (d.won ? '<td class="pass">Won</td>' : '<td class="fail">Lost</td>');
+    const slot = d.ofOurs > 1 || d.ofTheirs > 1 ? ` · our #${d.slot} vs their #${Math.min(d.slot, d.ofTheirs)}` : '';
+    return `<tr><td>M${p.match} vs ${xEsc(p.opp)}<small>${p.bf} · ${xEsc(p.job)}${slot}</small></td><td class="${d.won?'pass':(d.tie?'none':'fail')}">${sc(p)}<small>${kad(p)}</small></td><td>${xEsc(d.opp.name)}<small>${sc(d.opp)} · ${kad(d.opp)}</small></td>${res}</tr>`;
+  }).join('');
+  return `<div class="xm-sec">Your opposite number · duels ${w}W – ${l}L${t?` – ${t}D`:''}</div>
+    <div class="xm-sub" style="margin-bottom:4px;">Each match, matched against the enemy player in the same job on the same battlefield (best vs best, 2nd vs 2nd…). Won = more ${word(rows[0].bf).toLowerCase()}; a tie goes to kills, then fewer deaths.</div>
+    <table class="pf-cmp"><thead><tr><th>Match</th><th>${xEsc(PF.name)}</th><th>Opposite number</th><th>Duel</th></tr></thead><tbody>${body}</tbody></table>`;
+}
+
+// ----- best duos (two players in the same party) -----
+function duoData(bfSel, ex){
+  const X = XEV[currentEvent], S = X.snap(), sc = XSC[currentEvent].score;
+  const find = {}; S.players.forEach(p=>{ find[`${p.match}|${p.bf}|${p.name}`] = p; });
+  const pairs = {};
+  X.parties().forEach(pt=>{
+    if(bfSel!=='All' && pt.bf!==bfSel) return;
+    const mem = pt.members.map(m=>find[`${pt.match}|${pt.bf}|${m.name}`]).filter(p=>p && X.active(p) && !(ex && ex.has(p.job)));
+    const evs = mem.map(p=>({p, ev:X.ev(p)}));
+    for(let i=0;i<evs.length;i++) for(let j=i+1;j<evs.length;j++){
+      const [a,b] = [evs[i], evs[j]].sort((x,y)=>x.p.name.localeCompare(y.p.name));
+      const k = a.p.name + '\u0001' + b.p.name;
+      const r = pairs[k] = pairs[k] || {a:a.p.name, b:b.p.name, n:0, app:0, fails:0, pts:0, wins:0, parties:{}, ms:[]};
+      r.n++; r.app += a.ev.applicable + b.ev.applicable; r.fails += a.ev.fails + b.ev.fails;
+      r.pts += sc(a.p) + sc(b.p); if(a.p.result==='Win') r.wins++;
+      r.parties[pt.party] = (r.parties[pt.party]||0) + 1; r.ms.push(`M${pt.match} ${pt.bf}`);
+    }
+  });
+  return Object.values(pairs).map(r=>({...r, rate: r.app ? (r.app-r.fails)/r.app : 0, avg: r.pts/r.n}));
+}
+const DUO = {bf:'All', min:2, sort:'rate', q:'', ex:new Set()};
+const DUO_SUPPORT = ['Priest','Gypsy/Bard','Bard/Gypsy','Biochemist'];
+function openDuos(){ DUO.q=''; DUO.bf = XEV[currentEvent].bf(); xmOpen(`<div class="xm-title">Best duos · ${currentEvent}</div><div id="duoBody"></div>`, false); renderDuos(); }
+function renderDuos(){
+  const word = DUO.bf==='All' ? 'score (Main + Sub mixed)' : XSC[currentEvent].word(DUO.bf).toLowerCase();
+  let rows = duoData(DUO.bf, DUO.ex).filter(r=>r.n>=DUO.min);
+  // every job HOUSE fielded in a party on this battlefield, for the exclude ticks
+  const X = XEV[currentEvent];
+  const jobSet = new Set(); X.parties().forEach(pt=>{ if(DUO.bf!=='All' && pt.bf!==DUO.bf) return; pt.members.forEach(m=>{ const p = X.snap().players.find(q=>q.match===pt.match && q.bf===pt.bf && q.name===m.name); if(p) jobSet.add(p.job); }); });
+  const jobs = [...jobSet].sort();
+  const sup = jobs.filter(j=>DUO_SUPPORT.includes(j)), supOn = sup.length && sup.every(j=>DUO.ex.has(j));
+  const exBox = `<div class="duo-ex"><span class="lbl">Exclude jobs:</span>${jobs.map(j=>`<label class="duo-j${DUO.ex.has(j)?' off':''}"><input type="checkbox" data-duo-ex="${xEsc(j)}"${DUO.ex.has(j)?' checked':''}>${jobBadgeHtml(j)}</label>`).join('')}
+    <button type="button" class="att-btn" data-duo-sup>${supOn ? 'Show supports again' : 'Hide supports (Priest, Bard, Biochemist)'}</button>${DUO.ex.size ? `<button type="button" class="att-btn" data-duo-clear>Clear</button>` : ''}</div>`;
+  if(DUO.q) rows = rows.filter(r=>(r.a+' '+r.b).toLowerCase().includes(DUO.q));
+  rows.sort(DUO.sort==='rate' ? (x,y)=>(y.rate-x.rate)||(y.n-x.n)||(y.avg-x.avg) : DUO.sort==='pts' ? (x,y)=>(y.avg-x.avg)||(y.rate-x.rate) : (x,y)=>(y.n-x.n)||(y.rate-x.rate));
+  const seg = (attr, items, cur) => `<div class="xm-seg">${items.map(([v,l])=>`<button type="button" ${attr}="${v}" class="${String(cur)===String(v)?'on':''}">${l}</button>`).join('')}</div>`;
+  const top = rows.slice(0, 60);
+  const name = n => `<span data-player="${encodeURIComponent(n)}">${xEsc(n)}</span>`;
+  const body = top.map((r,i)=>`<tr><td>${i+1}</td><td>${name(r.a)} + ${name(r.b)}<small>Party ${Object.entries(r.parties).sort((a,b)=>b[1]-a[1]).map(([p,c])=>`${xEsc(p)}${c>1?` ×${c}`:''}`).join(', ')}</small></td><td>${r.n}<small title="${xEsc(r.ms.join(', '))}">${r.wins}W ${r.n-r.wins}L</small></td><td class="${r.rate>=0.6?'pass':(r.rate<0.4?'fail':'')}">${Math.round(r.rate*100)}%</td><td>${xFmt(r.avg)}</td></tr>`).join('');
+  document.getElementById('duoBody').innerHTML = `
+    <div class="xm-sub">Pairs who were in the same party. <b>Green rate</b> = share of both players' stats that came out green in the matches they played together. Only pairs with at least ${DUO.min} matches together are shown.${DUO.ex.size ? ` A player is left out of a match when they played an excluded job in it.` : ''}</div>
+    <div class="xm-tools">${seg('data-duo-bf', [['All','Main + Sub'],['Main','Main'],['Sub','Sub']], DUO.bf)}<span style="display:inline-flex; align-items:center; gap:6px;"><span style="font-size:11px; font-weight:800; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.03em;">Matches together</span>${seg('data-duo-min', [[2,'2+'],[3,'3+'],[5,'5+']], DUO.min)}</span>${seg('data-duo-sort', [['rate','Green rate'],['pts','Points'],['n','Most together']], DUO.sort)}
+      <input type="search" data-duo-q placeholder="Find a player…" value="${xEsc(DUO.q)}" style="font:inherit; font-size:12.5px; padding:7px 10px; border-radius:8px; border:1px solid var(--border); background:var(--panel-2); color:var(--text); min-height:36px; flex:1; min-width:140px;"></div>
+    ${exBox}
+    <div class="att-wrap"><table class="pf-cmp" style="margin-top:0;"><thead><tr><th>#</th><th>Duo</th><th>Together</th><th>Green rate</th><th>Avg combined ${xEsc(word)}</th></tr></thead><tbody>${body || `<tr><td colspan="5" class="none">No pairs match.</td></tr>`}</tbody></table></div>
+    ${rows.length > top.length ? `<div class="xm-sub" style="margin-top:6px;">Showing the top ${top.length} of ${rows.length} pairs. Search a name to see all of theirs.</div>` : ''}`;
+}
+function bestPartners(name){
+  const rows = duoData('All').filter(r=>r.n>=2 && (r.a===name || r.b===name)).sort((x,y)=>(y.rate-x.rate)||(y.n-x.n)).slice(0,3);
+  if(!rows.length) return '';
+  return `<br>Best partners: ${rows.map(r=>{ const o = r.a===name ? r.b : r.a; return `<b data-player="${encodeURIComponent(o)}">${xEsc(o)}</b> ${Math.round(r.rate*100)}% green (${r.n} together)`; }).join(' · ')}`;
+}
+
+// ----- job meta -----
+const JM = {bf:'Main', open:null};
+function openJobMeta(){ JM.bf = XEV[currentEvent].bf(); JM.open = null; xmOpen(`<div class="xm-title">Job meta · ${currentEvent}</div><div id="jmBody"></div>`, false); renderJobMeta(); }
+function renderJobMeta(){
+  const X = XEV[currentEvent], S = X.snap();
+  const matches = [...S.matches].sort((a,b)=>b.match-a.match);
+  const count = (list, m) => { const c = {}; list.forEach(p=>{ if(p.match===m && p.bf===JM.bf && X.active(p)) c[p.job] = (c[p.job]||0) + 1; }); return c; };
+  const H = {}, O = {}; matches.forEach(m=>{ H[m.match] = count(S.players, m.match); O[m.match] = count(xOpps(), m.match); });
+  const jobs = [...new Set(matches.flatMap(m=>[...Object.keys(H[m.match]), ...Object.keys(O[m.match])]))];
+  const n = matches.length;
+  // winning side vs losing side, averaged over every match (both guilds count)
+  const stat = jobs.map(j=>{
+    let w = 0, l = 0, h = 0;
+    matches.forEach(m=>{ const hc = H[m.match][j]||0, oc = O[m.match][j]||0; h += hc; if(m.result==='Win'){ w += hc; l += oc; } else { w += oc; l += hc; } });
+    return {j, w:w/n, l:l/n, h:h/n, diff:(w-l)/n};
+  }).sort((a,b)=>b.diff-a.diff);
+  const seg = `<div class="xm-seg">${['Main','Sub'].map(b=>`<button type="button" data-jm-bf="${b}" class="${JM.bf===b?'on':''}">${b}</button>`).join('')}</div>`;
+  const sign = v => (v>0?'+':'') + xFmt(v);
+  // tap a job: show, match by match, exactly where the averages come from
+  const detail = j => {
+    let tw = 0, tl = 0, th = 0;
+    const rows = matches.map(m=>{
+      const hc = H[m.match][j]||0, oc = O[m.match][j]||0, win = m.result==='Win';
+      const w = win ? hc : oc, l = win ? oc : hc; tw += w; tl += l; th += hc;
+      return `<tr><td>M${m.match} vs ${xEsc(m.opp)}</td><td style="color:${win?'var(--win)':'var(--loss)'}">${win?'HOUSE won':xEsc(m.opp)+' won'}</td><td>${w}<small>${win?'HOUSE':xEsc(m.opp)}</small></td><td>${l}<small>${win?xEsc(m.opp):'HOUSE'}</small></td><td>${hc}</td></tr>`;
+    }).join('');
+    const eq = (tot) => `${tot} ÷ ${n} = <b>${xFmt(tot/n)}</b>`;
+    return `<tr class="jm-detail"><td colspan="5"><div class="jm-d">
+      <div class="xm-sub" style="margin:0 0 6px;">How ${jobBadgeHtml(j)} is worked out on ${JM.bf}: in each match, count that job on the side that won and on the side that lost (only players who actually did something), then average over all ${n} matches.</div>
+      <table class="pf-cmp"><thead><tr><th>Match</th><th>Winner</th><th>On winning side</th><th>On losing side</th><th>HOUSE had</th></tr></thead>
+      <tbody>${rows}<tr class="jm-sum"><td>Total</td><td></td><td>${tw}</td><td>${tl}</td><td>${th}</td></tr>
+      <tr class="jm-sum"><td>Average (÷ ${n})</td><td></td><td>${eq(tw)}</td><td>${eq(tl)}</td><td>${eq(th)}</td></tr></tbody></table>
+      <div class="xm-sub" style="margin:6px 0 0;">Difference = winners avg − losers avg = ${xFmt(tw/n)} − ${xFmt(tl/n)} = <b>${sign((tw-tl)/n)}</b></div></div></td></tr>`;
+  };
+  const t1 = stat.map(s=>`<tr class="jm-row${JM.open===s.j?' open':''}" data-jm-job="${xEsc(s.j)}" title="Tap to see how this is worked out"><td>${jobBadgeHtml(s.j)} <span class="jm-car">${JM.open===s.j?'▾':'▸'}</span></td><td>${xFmt(s.w)}</td><td>${xFmt(s.l)}</td><td class="${s.diff>=0.5?'pass':(s.diff<=-0.5?'fail':'none')}">${sign(s.diff)}</td><td>${xFmt(s.h)}</td></tr>${JM.open===s.j ? detail(s.j) : ''}`).join('');
+  const head = matches.map(m=>`<th>M${m.match}<small style="color:${m.result==='Win'?'var(--win)':'var(--loss)'}">${m.result==='Win'?'W':'L'} · ${xEsc(m.opp)}</small></th>`).join('');
+  const t2 = [...stat].sort((a,b)=>b.h-a.h).map(s=>`<tr><td class="n">${jobBadgeHtml(s.j)}</td>${matches.map(m=>{ const hc = H[m.match][s.j]||0, oc = O[m.match][s.j]||0; const cls = hc>oc ? 'M' : (hc<oc ? 'x' : 'pre'); return `<td><span class="c ${cls}" title="HOUSE ${hc} · ${xEsc(m.opp)} ${oc}">${hc} : ${oc}</span></td>`; }).join('')}</tr>`).join('');
+  document.getElementById('jmBody').innerHTML = `
+    <div class="xm-tools">${seg}</div>
+    <div class="xm-sec">Which jobs show up in wins · ${JM.bf}</div>
+    <div class="xm-sub">Average number of each job on the <b>winning</b> side vs the <b>losing</b> side, across all ${n} matches (HOUSE and opponents both count). A big + means winners usually had more of that job. Tap a job to see how its numbers are worked out.</div>
+    <div class="att-wrap" style="max-height:none;"><table class="pf-cmp" style="margin-top:0;"><thead><tr><th>Job</th><th>Winners avg</th><th>Losers avg</th><th>Difference</th><th>HOUSE avg</th></tr></thead><tbody>${t1}</tbody></table></div>
+    <div class="xm-sec">Each match · HOUSE : opponent</div>
+    <div class="att-wrap"><table class="att"><thead><tr><th class="n">Job</th>${head}</tr></thead><tbody>${t2}</tbody></table></div>
+    <div class="att-legend"><span><span class="att"><span class="c M">5 : 3</span></span> HOUSE had more</span><span><span class="att"><span class="c x">2 : 4</span></span> they had more</span><span><span class="att"><span class="c pre">3 : 3</span></span> even</span></div>`;
+}
+
+document.addEventListener('click', e=>{
+  const b = e.target.closest('[data-duo-bf],[data-duo-min],[data-duo-sort],[data-jm-bf],[data-duos],[data-jobmeta]');
+  if(!b) return;
+  if(b.dataset.duos!==undefined){ openDuos(); return; }
+  if(b.dataset.jobmeta!==undefined){ openJobMeta(); return; }
+  if(b.dataset.duoBf){ DUO.bf = b.dataset.duoBf; renderDuos(); return; }
+  if(b.dataset.duoMin){ DUO.min = +b.dataset.duoMin; renderDuos(); return; }
+  if(b.dataset.duoSort){ DUO.sort = b.dataset.duoSort; renderDuos(); return; }
+  if(b.dataset.jmBf){ JM.bf = b.dataset.jmBf; JM.open = null; renderJobMeta(); }
+});
+document.addEventListener('click', e=>{
+  const r = e.target.closest('[data-jm-job]'); if(!r) return;
+  JM.open = JM.open === r.dataset.jmJob ? null : r.dataset.jmJob; renderJobMeta();
+  const d = document.querySelector('.jm-detail'); if(d) d.scrollIntoView({block:'nearest', behavior:'smooth'});
+});
+document.addEventListener('click', e=>{
+  if(e.target.closest('[data-duo-sup]')){
+    const X = XEV[currentEvent]; const present = new Set(X.snap().players.map(p=>p.job));
+    const sup = DUO_SUPPORT.filter(j=>present.has(j));
+    const allOn = sup.every(j=>DUO.ex.has(j));
+    sup.forEach(j=> allOn ? DUO.ex.delete(j) : DUO.ex.add(j)); renderDuos(); return;
+  }
+  if(e.target.closest('[data-duo-clear]')){ DUO.ex.clear(); renderDuos(); }
+});
+document.addEventListener('change', e=>{
+  if(e.target.matches('[data-duo-ex]')){ const j = e.target.dataset.duoEx; e.target.checked ? DUO.ex.add(j) : DUO.ex.delete(j); renderDuos(); }
+});
+document.addEventListener('input', e=>{
+  if(e.target.matches('[data-duo-q]')){
+    DUO.q = e.target.value.trim().toLowerCase(); const pos = e.target.selectionStart; renderDuos();
+    const q = document.querySelector('[data-duo-q]'); if(q){ q.focus(); try{ q.setSelectionRange(pos, pos); }catch(_){} }
+  }
+});
 function renderMetricChips(ev){
   return ev.checks.map(c=>{
     // valDisplay lets a check show something other than its raw scored value — right now only
